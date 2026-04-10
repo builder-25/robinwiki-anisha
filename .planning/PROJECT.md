@@ -20,7 +20,7 @@ Users can capture raw thoughts and have them automatically structured into searc
 ### Active
 
 - [ ] Migrate server app from `stateful-robin-impl` into `robin/` workspace directory with `src/` source layout
-- [ ] Migrate `packages/agent`, `packages/queue`, `packages/shared` as workspace packages under `packages/`
+- [x] ~~Migrate `packages/agent`, `packages/queue`, `packages/shared` as workspace packages under `packages/`~~ — Validated in Phase 2: Package Migration
 - [ ] Stub gateway client with facade that returns expected empty/default objects for all gateway calls
 - [ ] Remove Go gateway and gitolite infrastructure entirely
 - [x] ~~Set up pnpm workspace with `robin` and `packages/*` as workspace entries~~ (Phase 1)
