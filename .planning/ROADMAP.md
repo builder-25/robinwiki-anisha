@@ -58,8 +58,11 @@ Plans:
   3. Drizzle migrations exist under `robin/drizzle/`
   4. Gateway client facade returns structurally valid default/empty responses for every method — no crashes on gateway code paths
   5. Server boots and `GET /health` returns a successful response
-**Plans**: TBD
-**UI hint**: no
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Copy server source, configs, and migrations; fix config paths; replace gateway client with no-op facade
+- [ ] 03-02-PLAN.md — Install dependencies, verify TypeScript compilation, and confirm server boots with /health
 
 ### Phase 4: Verification
 **Goal**: The full workspace installs, compiles, and builds cleanly with no errors
@@ -80,5 +83,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Workspace Setup | 0/1 | Not started | - |
 | 2. Package Migration | 0/1 | Not started | - |
-| 3. Server Migration | 0/TBD | Not started | - |
+| 3. Server Migration | 0/2 | Not started | - |
 | 4. Verification | 0/TBD | Not started | - |
