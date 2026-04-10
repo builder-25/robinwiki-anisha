@@ -1,0 +1,5 @@
+# Generated tsc output (should go to dist/, not src/)
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map

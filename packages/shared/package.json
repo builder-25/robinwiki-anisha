@@ -1,0 +1,37 @@
+{
+  "name": "@robin/shared",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    },
+    "./prompts": {
+      "import": "./dist/prompts/index.mjs",
+      "types": "./dist/prompts/index.d.mts"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint ./src",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.3.5",
+    "tsdown": "^0.21.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "handlebars": "^4.7.8",
+    "js-yaml": "^4.1.1",
+    "ulidx": "^2.4.1",
+    "zod": "^4.3.6"
+  }
+}
