@@ -1,0 +1,24 @@
+{
+  "name": "robin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "biome format --write .",
+    "clean": "find robin packages -type d \\( -name dist -o -name node_modules -o -name .turbo \\) -prune -exec rm -rf {} + && rm -rf node_modules .turbo"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "turbo": "^2.8.11",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.15.1",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
