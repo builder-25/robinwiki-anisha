@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md — Create pnpm-workspace.yaml, root package.json, turbo.json, biome.json, and tsconfig.base.json; run pnpm install to verify
+- [x] 01-01-PLAN.md — Create pnpm-workspace.yaml, root package.json, turbo.json, biome.json, and tsconfig.base.json; run pnpm install to verify
 
 ### Phase 2: Package Migration
 **Goal**: All three workspace packages are in place under `packages/` with correct identities and cross-references
