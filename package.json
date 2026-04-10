@@ -9,7 +9,7 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "format": "biome format --write .",
-    "clean": "find robin packages -type d \\( -name dist -o -name node_modules -o -name .turbo \\) -prune -exec rm -rf {} + && rm -rf node_modules .turbo"
+    "clean": "find core packages -type d \\( -name dist -o -name node_modules -o -name .turbo \\) -prune -exec rm -rf {} + && rm -rf node_modules .turbo"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

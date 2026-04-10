@@ -5,8 +5,8 @@
  * HTTP routes. Outputs a single manifest JSON consumed by /apidoc.
  *
  * @remarks
- * Run: `pnpm --filter @robin/server openapi:manifest`
- * Output: `apps/server/openapi-manifest.json`
+ * Run: `pnpm --filter @robin/core openapi:manifest`
+ * Output: `core/openapi-manifest.json`
  */
 
 import { zodToJsonSchema } from 'zod-to-json-schema'

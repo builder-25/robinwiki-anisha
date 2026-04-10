@@ -14,7 +14,7 @@ This repo is a migration from the original `stateful-robin-impl` monorepo. The G
 - **No regressions**: Workspace package boundaries (`@robin/agent`, `@robin/queue`, `@robin/shared`) must be preserved exactly — no flattening
 - **Gateway facade**: Gateway client must return structurally valid responses so the server doesn't crash on gateway-dependent code paths
 - **Single source**: Migration from existing working code, not a rewrite
-- **Workspace layout**: `robin/` and `packages/*` are top-level workspace entries, no `apps/` subdirectory
+- **Workspace layout**: `core/` and `packages/*` are top-level workspace entries, no `apps/` subdirectory
 <!-- GSD:project-end -->
 
 <!-- GSD:stack-start source:STACK.md -->
