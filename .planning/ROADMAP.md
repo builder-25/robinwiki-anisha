@@ -46,7 +46,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02-01-PLAN.md — Migrate @robin/shared, @robin/queue, and @robin/agent from source repo; fix agent vitest alias; verify cross-references
+- [x] 02-01-PLAN.md — Migrate @robin/shared, @robin/queue, and @robin/agent from source repo; fix agent vitest alias; verify cross-references
 
 ### Phase 3: Server Migration
 **Goal**: Server source lives at `robin/src/`, all modules are preserved, and gateway-dependent code paths use a facade that returns valid empty responses
