@@ -43,7 +43,10 @@ Plans:
   2. `packages/queue/` contains the BullMQ abstraction with package name `@robin/queue`
   3. `packages/shared/` contains types, prompts, and utilities with package name `@robin/shared`
   4. `workspace:*` references between packages resolve without error
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md — Migrate @robin/shared, @robin/queue, and @robin/agent from source repo; fix agent vitest alias; verify cross-references
 
 ### Phase 3: Server Migration
 **Goal**: Server source lives at `robin/src/`, all modules are preserved, and gateway-dependent code paths use a facade that returns valid empty responses
@@ -76,6 +79,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Workspace Setup | 0/1 | Not started | - |
-| 2. Package Migration | 0/TBD | Not started | - |
+| 2. Package Migration | 0/1 | Not started | - |
 | 3. Server Migration | 0/TBD | Not started | - |
 | 4. Verification | 0/TBD | Not started | - |
