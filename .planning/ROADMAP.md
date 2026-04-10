@@ -72,7 +72,10 @@ Plans:
   1. `pnpm install` completes successfully with no missing dependencies
   2. `tsc --noEmit` passes with zero TypeScript errors across the workspace
   3. All workspace packages (`@robin/agent`, `@robin/queue`, `@robin/shared`, `@robin/server`) build successfully
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 04-01-PLAN.md — Run pnpm install, fix TypeScript errors, and verify all workspace packages build successfully
 
 ## Progress
 
@@ -84,4 +87,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Workspace Setup | 0/1 | Not started | - |
 | 2. Package Migration | 0/1 | Not started | - |
 | 3. Server Migration | 0/2 | Not started | - |
-| 4. Verification | 0/TBD | Not started | - |
+| 4. Verification | 0/1 | Not started | - |
