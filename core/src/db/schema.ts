@@ -9,9 +9,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
-import { customAlphabet } from 'nanoid'
-
-const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 21)
+import { nanoid } from '../lib/id.js'
 
 // ─── Auth Tables (better-auth — preserved exactly) ───
 
