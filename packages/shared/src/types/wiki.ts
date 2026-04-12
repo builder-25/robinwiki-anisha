@@ -4,7 +4,7 @@ export type WikiType =
   | 'belief'
   | 'decision'
   | 'project'
-  | 'objective'
+  | 'goal'
   | 'skill'
   | 'agent'
   | 'voice'
@@ -22,9 +22,21 @@ export const DEFAULT_WIKIS: DefaultWiki[] = [
   { name: 'Beliefs', slug: 'beliefs', type: 'belief' },
   { name: 'Decisions', slug: 'decisions', type: 'decision' },
   { name: 'Projects', slug: 'projects', type: 'project' },
-  { name: 'Objectives', slug: 'objectives', type: 'objective' },
+  { name: 'Goals', slug: 'goals', type: 'goal' },
   { name: 'Skills', slug: 'skills', type: 'skill' },
   { name: 'Agents', slug: 'agents', type: 'agent' },
   { name: 'Voice', slug: 'voice', type: 'voice' },
   { name: 'Principles', slug: 'principles', type: 'principles' },
 ]
+
+export interface WikiTypeRecord {
+  slug: string
+  name: string
+  shortDescriptor: string
+  descriptor: string
+  prompt: string
+  isDefault: boolean
+  userModified: boolean
+  createdAt: Date
+  updatedAt: Date
+}

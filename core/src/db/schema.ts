@@ -123,6 +123,20 @@ export const configs = pgTable(
   ]
 )
 
+// ─── Wiki Types (first-class type registry — seeded from YAML, user-customizable) ───
+
+export const wikiTypes = pgTable('wiki_types', {
+  slug: text('slug').primaryKey(),
+  name: text('name').notNull(),
+  shortDescriptor: text('short_descriptor').notNull().default(''),
+  descriptor: text('descriptor').notNull().default(''),
+  prompt: text('prompt').notNull().default(''),
+  isDefault: boolean('is_default').notNull().default(false),
+  userModified: boolean('user_modified').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // ─── State Enum ───
 
 export const objectStateEnum = pgEnum('object_state', ['PENDING', 'LINKING', 'RESOLVED'])

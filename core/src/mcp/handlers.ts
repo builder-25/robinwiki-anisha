@@ -42,6 +42,7 @@ import {
   wikis as threadsTable,
   edges as edgesTable,
   people as peopleTable,
+  wikiTypes as wikiTypesTable,
 } from '../db/schema.js'
 import { resolveThreadBySlug } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
@@ -346,6 +347,97 @@ export async function handleLogFragment(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     log.error({ err, userId }, 'mcp log_fragment failed')
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${message}` }],
+      isError: true as const,
+    }
+  }
+}
+
+/**
+ * Handle the `create_wiki_type` MCP tool call.
+ *
+ * @summary Create a custom wiki type with guardrails for slug format,
+ * conflict detection, and required fields.
+ */
+export async function handleCreateWikiType(
+  deps: McpServerDeps,
+  input: {
+    slug: string
+    name: string
+    shortDescriptor: string
+    descriptor: string
+    prompt?: string
+  }
+) {
+  try {
+    // Normalize slug
+    const slug = input.slug
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+
+    if (!slug) {
+      return {
+        content: [{ type: 'text' as const, text: 'Error: slug is required and must contain alphanumeric characters or hyphens' }],
+        isError: true as const,
+      }
+    }
+
+    if (!input.name?.trim()) {
+      return {
+        content: [{ type: 'text' as const, text: 'Error: name is required' }],
+        isError: true as const,
+      }
+    }
+
+    if (!input.shortDescriptor?.trim()) {
+      return {
+        content: [{ type: 'text' as const, text: 'Error: shortDescriptor is required' }],
+        isError: true as const,
+      }
+    }
+
+    if (!input.descriptor?.trim()) {
+      return {
+        content: [{ type: 'text' as const, text: 'Error: descriptor is required' }],
+        isError: true as const,
+      }
+    }
+
+    // Check for slug conflict
+    const [existing] = await deps.db
+      .select({ slug: wikiTypesTable.slug })
+      .from(wikiTypesTable)
+      .where(eq(wikiTypesTable.slug, slug))
+    if (existing) {
+      return {
+        content: [{ type: 'text' as const, text: `Error: wiki type "${slug}" already exists` }],
+        isError: true as const,
+      }
+    }
+
+    const prompt = input.prompt?.trim() || `You are Quill. Generate a ${input.name.trim()} document.`
+
+    const [created] = await deps.db
+      .insert(wikiTypesTable)
+      .values({
+        slug,
+        name: input.name.trim(),
+        shortDescriptor: input.shortDescriptor.trim(),
+        descriptor: input.descriptor.trim(),
+        prompt,
+        isDefault: false,
+        userModified: true,
+      })
+      .returning()
+
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(created) }],
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    log.error({ err }, 'mcp create_wiki_type failed')
     return {
       content: [{ type: 'text' as const, text: `Error: ${message}` }],
       isError: true as const,

@@ -17,13 +17,20 @@ const log = logger.child({ component: 'wikis' })
 
 /** Prepare a thread row for schema parsing (add id alias + computed defaults) */
 function prepareThread(
-  t: typeof wikis.$inferSelect & { noteCount?: number; lastUpdated?: string }
+  t: typeof wikis.$inferSelect & {
+    noteCount?: number
+    lastUpdated?: string
+    shortDescriptor?: string
+    descriptor?: string
+  }
 ) {
   return {
     ...t,
     id: t.lookupKey,
     noteCount: t.noteCount ?? 0,
     lastUpdated: t.lastUpdated ?? t.updatedAt.toISOString(),
+    shortDescriptor: t.shortDescriptor ?? '',
+    descriptor: t.descriptor ?? '',
   }
 }
 

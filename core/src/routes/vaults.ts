@@ -10,7 +10,7 @@ import type { ReclassifyJob } from '@robin/queue'
 import { nanoid } from '../lib/id.js'
 import { sessionMiddleware } from '../middleware/session.js'
 import { db } from '../db/client.js'
-import { vaults, wikis, edges } from '../db/schema.js'
+import { vaults, wikis, edges, wikiTypes } from '../db/schema.js'
 import { producer } from '../queue/producer.js'
 import { logger } from '../lib/logger.js'
 import { validationHook } from '../lib/validation.js'
@@ -122,9 +122,27 @@ vaultsRouter.put('/:id/profile', zValidator('json', updateVaultProfileBodySchema
 vaultsRouter.get('/:vaultId/wikis', async (c) => {
   const vaultId = c.req.param('vaultId')
 
-  const rows = await db.select().from(wikis).where(eq(wikis.vaultId, vaultId))
+  const rows = await db
+    .select({
+      wiki: wikis,
+      shortDescriptor: wikiTypes.shortDescriptor,
+      descriptor: wikiTypes.descriptor,
+    })
+    .from(wikis)
+    .leftJoin(wikiTypes, eq(wikis.type, wikiTypes.slug))
+    .where(eq(wikis.vaultId, vaultId))
 
-  return c.json({ wikis: rows.map((r) => threadResponseSchema.parse(prepareThread(r))) })
+  return c.json({
+    wikis: rows.map((r) =>
+      threadResponseSchema.parse(
+        prepareThread({
+          ...r.wiki,
+          shortDescriptor: r.shortDescriptor ?? '',
+          descriptor: r.descriptor ?? '',
+        })
+      )
+    ),
+  })
 })
 
 // POST /vaults/:vaultId/wikis — create thread

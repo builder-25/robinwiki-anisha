@@ -19,9 +19,9 @@
 
 import { z } from 'zod/v4'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { listWikis, getThread, getFragment, findPersonById, findPersonByQuery } from './resolvers.js'
+import { listWikis, getThread, getFragment, findPersonById, findPersonByQuery, listWikiTypes } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
-import { handleLogEntry, handleLogFragment } from './handlers.js'
+import { handleLogEntry, handleLogFragment, handleCreateWikiType } from './handlers.js'
 import type { McpServerDeps } from './handlers.js'
 
 export type { McpServerDeps }
@@ -90,37 +90,30 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
   )
 
   /***********************************************************************
-   * ## Resources
+   * ## Wiki listing
    ***********************************************************************/
 
-  server.registerResource(
-    'list_threads',
-    'robin://wikis',
+  server.registerTool(
+    'list_wikis',
     {
-      description: 'All wikis with fragment counts and wiki previews',
+      description: 'List all wikis with fragment counts, previews, and type descriptors',
+      inputSchema: {
+        includeDescriptors: z.boolean().optional().describe(
+          'Include type descriptors in the response (default: true). Set false for compact output.'
+        ),
+      },
     },
-    async () => {
+    async ({ includeDescriptors }) => {
       try {
-        const data = await listWikis(resolverDeps)
+        const data = await listWikis(resolverDeps, { includeDescriptors })
         return {
-          contents: [
-            {
-              uri: 'robin://wikis',
-              mimeType: 'application/json',
-              text: JSON.stringify(data),
-            },
-          ],
+          content: [{ type: 'text' as const, text: JSON.stringify(data) }],
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err)
         return {
-          contents: [
-            {
-              uri: 'robin://wikis',
-              mimeType: 'application/json',
-              text: JSON.stringify({ error: message }),
-            },
-          ],
+          content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }],
+          isError: true as const,
         }
       }
     }
@@ -230,6 +223,54 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
           isError: true as const,
         }
       }
+    }
+  )
+
+  /***********************************************************************
+   * ## Wiki type tools
+   ***********************************************************************/
+
+  server.registerTool(
+    'get_wiki_types',
+    {
+      description:
+        'List all available wiki types with their descriptors. ' +
+        'Use this to understand what types are available before classifying or creating wikis.',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const data = await listWikiTypes(resolverDeps)
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(data) }],
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }],
+          isError: true as const,
+        }
+      }
+    }
+  )
+
+  server.registerTool(
+    'create_wiki_type',
+    {
+      description:
+        'Create a custom wiki type. Use this intentionally — only when the existing types ' +
+        'do not fit the content. Requires a unique slug, a display name, a short descriptor ' +
+        '(3-5 words), and a full descriptor sentence.',
+      inputSchema: {
+        slug: z.string().describe('Unique slug: lowercase alphanumeric + hyphens only'),
+        name: z.string().describe('Display name (e.g. "Research Notes")'),
+        shortDescriptor: z.string().describe('3-5 word label for pills/badges'),
+        descriptor: z.string().describe('One sentence describing what this wiki type contains'),
+        prompt: z.string().optional().describe('Optional: custom Quill generation instruction'),
+      },
+    },
+    async ({ slug, name, shortDescriptor, descriptor, prompt }) => {
+      return handleCreateWikiType(deps, { slug, name, shortDescriptor, descriptor, prompt })
     }
   )
 

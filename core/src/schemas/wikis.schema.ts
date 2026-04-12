@@ -17,6 +17,8 @@ export const threadResponseSchema = z.object({
   updatedAt: z.coerce.date(),
   noteCount: z.number().default(0),
   lastUpdated: z.string(),
+  shortDescriptor: z.string().default(''),
+  descriptor: z.string().default(''),
 })
 
 export const threadWithWikiResponseSchema = threadResponseSchema.extend({

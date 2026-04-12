@@ -30,7 +30,7 @@
 
 import { eq, and, isNull, sql, inArray } from 'drizzle-orm'
 import type { DB } from '../db/client.js'
-import { wikis, fragments, people, edges } from '../db/schema.js'
+import { wikis, fragments, people, edges, wikiTypes } from '../db/schema.js'
 
 /***********************************************************************
  * ## Types
@@ -60,6 +60,8 @@ interface WikiSummary {
   fragmentCount: number
   lastRebuiltAt: string | null
   wikiPreview: string
+  shortDescriptor: string
+  descriptor: string
 }
 
 /** Full thread detail with wiki body and member fragment snippets. */
@@ -372,7 +374,12 @@ function resolvePerson(
  * @param deps - Database client
  * @returns Array of {@link WikiSummary} sorted by last update
  */
-export async function listWikis(deps: McpResolverDeps): Promise<WikiSummary[]> {
+export async function listWikis(
+  deps: McpResolverDeps,
+  opts: { includeDescriptors?: boolean } = {}
+): Promise<WikiSummary[]> {
+  const includeDescriptors = opts.includeDescriptors ?? true
+
   const rows = await deps.db
     .select({
       lookupKey: wikis.lookupKey,
@@ -383,8 +390,11 @@ export async function listWikis(deps: McpResolverDeps): Promise<WikiSummary[]> {
       content: wikis.content,
       lastRebuiltAt: wikis.lastRebuiltAt,
       fragmentCount: sql<number>`count(${edges.id})::int`,
+      shortDescriptor: wikiTypes.shortDescriptor,
+      descriptor: wikiTypes.descriptor,
     })
     .from(wikis)
+    .leftJoin(wikiTypes, eq(wikis.type, wikiTypes.slug))
     .leftJoin(
       edges,
       and(
@@ -394,7 +404,7 @@ export async function listWikis(deps: McpResolverDeps): Promise<WikiSummary[]> {
       )
     )
     .where(isNull(wikis.deletedAt))
-    .groupBy(wikis.lookupKey)
+    .groupBy(wikis.lookupKey, wikiTypes.shortDescriptor, wikiTypes.descriptor)
     .orderBy(sql`${wikis.updatedAt} DESC`)
     .limit(20)
 
@@ -410,6 +420,8 @@ export async function listWikis(deps: McpResolverDeps): Promise<WikiSummary[]> {
       fragmentCount: row.fragmentCount,
       lastRebuiltAt: row.lastRebuiltAt?.toISOString() ?? null,
       wikiPreview,
+      shortDescriptor: includeDescriptors ? (row.shortDescriptor ?? '') : '',
+      descriptor: includeDescriptors ? (row.descriptor ?? '') : '',
     }
   })
 }
@@ -769,4 +781,37 @@ export async function resolveThreadBySlug(
     error: `Thread not found: "${slugInput}"`,
     suggestions: scored.slice(0, 3).map((s) => s.slug),
   }
+}
+
+/***********************************************************************
+ * ## Wiki type resolvers
+ ***********************************************************************/
+
+export interface WikiTypeSummary {
+  slug: string
+  name: string
+  shortDescriptor: string
+  descriptor: string
+  isDefault: boolean
+  userModified: boolean
+}
+
+/**
+ * List all wiki types ordered by name.
+ * Global config -- no userId scoping needed.
+ */
+export async function listWikiTypes(deps: McpResolverDeps): Promise<WikiTypeSummary[]> {
+  const rows = await deps.db
+    .select({
+      slug: wikiTypes.slug,
+      name: wikiTypes.name,
+      shortDescriptor: wikiTypes.shortDescriptor,
+      descriptor: wikiTypes.descriptor,
+      isDefault: wikiTypes.isDefault,
+      userModified: wikiTypes.userModified,
+    })
+    .from(wikiTypes)
+    .orderBy(wikiTypes.name)
+
+  return rows
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { loadWikiGenerationSpec } from '../../prompts/index'
-import type { ThreadWikiType } from '../../prompts/index'
+import type { WikiType } from '../../types/wiki'
 
 const wikiFixtures = {
   fragments: 'Fragment 1: I went running today.\nFragment 2: Hit a new personal best on the 5k.',
@@ -9,13 +9,13 @@ const wikiFixtures = {
   count: 3,
 }
 
-const allTypes: ThreadWikiType[] = [
+const allTypes: WikiType[] = [
   'log',
   'collection',
   'belief',
   'decision',
   'project',
-  'objective',
+  'goal',
   'skill',
   'agent',
   'voice',

@@ -18,6 +18,7 @@ import { peopleRoutes } from './routes/people.js'
 import { graphRoutes } from './routes/graph.js'
 import { relationshipsRoutes } from './routes/relationships.js'
 import { contentRoutes } from './routes/content.js'
+import { wikiTypesRoutes } from './routes/wiki-types.js'
 // M2 dormant: internalRoutes is the git-sync webhook, preserved verbatim in
 // src/routes/internal.ts for M3/M4 refinement. Gateway is gone in M2 so the
 // route is not mounted. Restore when sync-back lands.
@@ -112,6 +113,7 @@ app.route('/people', peopleRoutes)
 app.route('/graph', graphRoutes)
 app.route('/relationships', relationshipsRoutes)
 app.route('/api/content', contentRoutes)
+app.route('/wiki-types', wikiTypesRoutes)
 
 /***********************************************************************
  * ## Boot
