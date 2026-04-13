@@ -7,7 +7,7 @@ import { collectionWikiSchema } from '../specs/wiki-types/collection.schema.js'
 import { beliefWikiSchema } from '../specs/wiki-types/belief.schema.js'
 import { decisionWikiSchema } from '../specs/wiki-types/decision.schema.js'
 import { projectWikiSchema } from '../specs/wiki-types/project.schema.js'
-import { objectiveWikiSchema } from '../specs/wiki-types/objective.schema.js'
+import { goalWikiSchema } from '../specs/wiki-types/goal.schema.js'
 import { skillWikiSchema } from '../specs/wiki-types/skill.schema.js'
 import { agentWikiSchema } from '../specs/wiki-types/agent.schema.js'
 import { voiceWikiSchema } from '../specs/wiki-types/voice.schema.js'
@@ -30,7 +30,7 @@ const schemaMap: Record<WikiType, z.ZodType> = {
   belief: beliefWikiSchema,
   decision: decisionWikiSchema,
   project: projectWikiSchema,
-  objective: objectiveWikiSchema,
+  goal: goalWikiSchema,
   skill: skillWikiSchema,
   agent: agentWikiSchema,
   voice: voiceWikiSchema,

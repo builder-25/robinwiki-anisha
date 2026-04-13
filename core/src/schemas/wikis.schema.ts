@@ -17,6 +17,8 @@ export const threadResponseSchema = z.object({
   updatedAt: z.coerce.date(),
   noteCount: z.number().default(0),
   lastUpdated: z.string(),
+  shortDescriptor: z.string().default(''),
+  descriptor: z.string().default(''),
 })
 
 export const threadWithWikiResponseSchema = threadResponseSchema.extend({
@@ -42,3 +44,19 @@ export const updateThreadBodySchema = z.object({
 })
 
 export { queuedResponseSchema as threadRegenerateResponseSchema }
+
+// ── Publish schemas ────────────────────────────────────────────────────────
+
+export const publishWikiResponseSchema = z.object({
+  published: z.boolean(),
+  publishedSlug: z.string().nullable(),
+  publishedAt: z.coerce.date().nullable(),
+  regenerate: z.boolean(),
+})
+
+export const publicWikiResponseSchema = z.object({
+  name: z.string(),
+  type: z.string(),
+  publishedAt: z.coerce.date(),
+  content: z.string(),
+})

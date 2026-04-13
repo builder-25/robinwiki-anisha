@@ -12,7 +12,7 @@ export type WikiGuideKey =
   | 'wiki-guide-belief'
   | 'wiki-guide-decision'
   | 'wiki-guide-project'
-  | 'wiki-guide-objective'
+  | 'wiki-guide-goal'
   | 'wiki-guide-skill'
   | 'wiki-guide-agent'
   | 'wiki-guide-voice'
@@ -24,7 +24,7 @@ export const WIKI_TYPE_TO_GUIDE_KEY: Record<WikiType, WikiGuideKey> = {
   belief: 'wiki-guide-belief',
   decision: 'wiki-guide-decision',
   project: 'wiki-guide-project',
-  objective: 'wiki-guide-objective',
+  goal: 'wiki-guide-goal',
   skill: 'wiki-guide-skill',
   agent: 'wiki-guide-agent',
   voice: 'wiki-guide-voice',

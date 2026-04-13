@@ -33,3 +33,7 @@ export * from './loaders/fragment-relevance.js'
 export { loadWikiGenerationSpec } from './loaders/wiki-generation.js'
 export { loadPersonSummarySpec } from './loaders/person-summary.js'
 export { personSummaryInputSchema } from './specs/person-summary/person-summary.schema.js'
+
+// Wiki type configs
+export { loadWikiTypeConfigs } from './loaders/wiki-type-configs.js'
+export type { WikiTypeConfig } from './loaders/wiki-type-configs.js'

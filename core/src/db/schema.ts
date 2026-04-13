@@ -123,6 +123,20 @@ export const configs = pgTable(
   ]
 )
 
+// ─── Wiki Types (first-class type registry — seeded from YAML, user-customizable) ───
+
+export const wikiTypes = pgTable('wiki_types', {
+  slug: text('slug').primaryKey(),
+  name: text('name').notNull(),
+  shortDescriptor: text('short_descriptor').notNull().default(''),
+  descriptor: text('descriptor').notNull().default(''),
+  prompt: text('prompt').notNull().default(''),
+  isDefault: boolean('is_default').notNull().default(false),
+  userModified: boolean('user_modified').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // ─── State Enum ───
 
 export const objectStateEnum = pgEnum('object_state', ['PENDING', 'LINKING', 'RESOLVED'])
@@ -134,6 +148,7 @@ function baseColumns() {
     lookupKey: text('lookup_key').primaryKey(),
     slug: text('slug').notNull(),
     state: objectStateEnum('state').notNull().default('PENDING'),
+    content: text('content').notNull().default(''),
     dedupHash: text('dedup_hash'),
     lockedBy: text('locked_by'),
     lockedAt: timestamp('locked_at'),
@@ -152,7 +167,6 @@ export const entries = pgTable(
   {
     ...baseColumns(),
     title: text('title').notNull().default(''),
-    content: text('content').notNull().default(''),
     type: text('type').notNull().default('thought'),
     source: text('source').notNull().default('api'),
     vaultId: text('vault_id').references(() => vaults.id, {
@@ -199,10 +213,17 @@ export const wikis = pgTable(
       onDelete: 'set null',
     }),
     lastRebuiltAt: timestamp('last_rebuilt_at'),
+    published: boolean('published').notNull().default(false),
+    publishedSlug: text('published_slug'),
+    publishedAt: timestamp('published_at'),
+    regenerate: boolean('regenerate').notNull().default(true),
     embedding: vector('embedding', { dimensions: 1536 }),
     searchVector: tsvector('search_vector'),
   },
-  (t) => [uniqueIndex('wikis_slug_uidx').on(t.slug)]
+  (t) => [
+    uniqueIndex('wikis_slug_uidx').on(t.slug),
+    uniqueIndex('wikis_published_slug_uidx').on(t.publishedSlug),
+  ]
 )
 
 export const people = pgTable(
@@ -237,6 +258,8 @@ export const edits = pgTable(
     timestamp: timestamp('timestamp').defaultNow().notNull(),
     type: text('type').notNull().default('addition'),
     content: text('content').notNull(),
+    source: text('source').notNull().default('user'),
+    diff: text('diff').notNull().default(''),
   },
   (t) => [index('edits_object_idx').on(t.objectType, t.objectId)]
 )

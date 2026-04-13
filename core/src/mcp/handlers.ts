@@ -18,7 +18,6 @@
  *
  * **Fail-open semantics:**
  * - Entity extraction errors → fragment persisted without people edges.
- * - Git gateway down → DB row created with empty `repoPath`; sync reconciles.
  * - Thread marked DIRTY after insert → wiki regen picks it up next cycle.
  *
  * @see {@link handleLogEntry} — pipeline entry point
@@ -30,15 +29,12 @@ import {
   makeLookupKey,
   parseLookupKey,
   generateSlug,
-  composeFilename,
   loadPeopleExtractionSpec,
 } from '@robin/shared'
 import type { PeopleExtractionOutput } from '@robin/shared'
-import type { BullMQProducer } from '@robin/queue'
-import { resolveEntrySlug } from '../db/slug.js'
+import type { BullMQProducer, ExtractionJob } from '@robin/queue'
+import { resolveEntrySlug, resolveWikiSlug } from '../db/slug.js'
 import { computeContentHash, findDuplicateEntry } from '../db/dedup.js'
-import type { WriteJob } from '@robin/queue'
-import type { gatewayClient as GatewayClient } from '../gateway/client.js'
 import type { DB } from '../db/client.js'
 import {
   entries as entriesTable,
@@ -46,13 +42,16 @@ import {
   wikis as threadsTable,
   edges as edgesTable,
   people as peopleTable,
+  wikiTypes as wikiTypesTable,
+  edits as editsTable,
 } from '../db/schema.js'
 import { resolveThreadBySlug } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
-import { assembleFragmentFrontmatter, assemblePersonFrontmatter } from '@robin/agent'
+import { inferWikiType } from './wiki-type-inference.js'
 import { resolvePerson, DEFAULT_RESOLUTION_CONFIG } from '@robin/agent'
 import type { KnownPerson } from '@robin/agent'
-import { eq } from 'drizzle-orm'
+import { eq, and, isNull } from 'drizzle-orm'
+import { nanoid } from '../lib/id.js'
 import { logger } from '../lib/logger.js'
 
 const log = logger.child({ component: 'mcp' })
@@ -63,11 +62,10 @@ const log = logger.child({ component: 'mcp' })
  *
  * @remarks
  * Deliberately broader than {@link McpResolverDeps} — handlers need
- * write access (producer, gateway writes) plus LLM calls for entity
- * extraction, while resolvers only need reads.
+ * write access (producer) plus LLM calls for entity extraction, while
+ * resolvers only need reads.
  *
  * @property producer              - BullMQ producer for enqueuing pipeline jobs
- * @property gatewayClient         - Git gateway for reads/writes to user repos
  * @property db                    - Drizzle database instance
  * @property spawnWriteWorker      - Ensures a write worker exists for the user
  * @property resolveDefaultVaultId - Returns the user's inbox vault ID
@@ -76,7 +74,6 @@ const log = logger.child({ component: 'mcp' })
  */
 export interface McpServerDeps {
   producer: BullMQProducer
-  gatewayClient: typeof GatewayClient
   db: DB
   spawnWriteWorker: (userId: string) => void
   resolveDefaultVaultId: (userId: string) => Promise<string | null>
@@ -90,32 +87,18 @@ export interface McpServerDeps {
  * @summary Captures a raw thought and feeds it into the full AI
  * ingestion pipeline (6 stages via BullMQ).
  *
- * @remarks
- * This is the primary entry point for MCP clients that want Robin to
- * classify, fragment, and file their content automatically.
- *
- * @param deps   - Injected dependencies (db, gateway, producer, etc.)
+ * @param deps   - Injected dependencies (db, producer, etc.)
  * @param input  - The raw content and optional source tag
  * @param userId - Authenticated user ID (`undefined` = not authenticated)
  * @returns MCP-shaped response with entry key or error
  *
  * @throws Never — all errors are caught and returned as `{ isError: true }`
- *
- * @example
- * ```ts
- * const result = await handleLogEntry(deps,
- *   { content: 'Had coffee with Sarah' },
- *   userId
- * )
- * // → { content: [{ type: 'text', text: 'Entry queued: entry01...' }] }
- * ```
  */
 export async function handleLogEntry(
   deps: McpServerDeps,
   input: { content: string; source?: 'mcp' | 'api' | 'web' },
   userId: string | undefined
 ) {
-  /** @gate — Reject unauthenticated requests */
   if (!userId) {
     return {
       content: [{ type: 'text' as const, text: 'Error: not authenticated' }],
@@ -123,7 +106,6 @@ export async function handleLogEntry(
     }
   }
 
-  /** @gate — Reject empty content */
   const trimmed = input.content?.trim()
   if (!trimmed) {
     return {
@@ -133,47 +115,24 @@ export async function handleLogEntry(
   }
 
   try {
-    /** @gate — Reject duplicate content */
     const hash = computeContentHash(trimmed)
-    const dup = await findDuplicateEntry(deps.db, userId, hash)
+    const dup = await findDuplicateEntry(deps.db, hash)
     if (dup) {
       return {
         content: [{ type: 'text' as const, text: `Duplicate: entry ${dup.lookupKey} already contains this content` }],
       }
     }
 
-    /** @step 1 — Generate entry identifiers and resolve default vault */
     const entryKey = makeLookupKey('entry')
     const { ulid: entryUlid } = parseLookupKey(entryKey)
     const defaultVaultId = await deps.resolveDefaultVaultId(userId)
     const title = trimmed.slice(0, 80)
-    const slug = await resolveEntrySlug(deps.db, userId, generateSlug(title))
+    const slug = await resolveEntrySlug(deps.db, generateSlug(title))
     const entrySource = input.source ?? 'mcp'
     const now = new Date()
-    const dateStr = now.toISOString().split('T')[0]
 
-    /** @step 2 — Write verbatim note to git (mirrors POST /entries) */
-    const noteFilePath = `var/raw/${dateStr}-${slug}.${entryKey}.md`
-    const noteContent = `---\ncreated_at: ${now.toISOString()}\nsource: ${entrySource}\nentry_id: ${entryKey}\n---\n\n${trimmed}`
-    let noteWriteOk = false
-    try {
-      await deps.gatewayClient.write({
-        userId,
-        path: noteFilePath,
-        content: noteContent,
-        message: `note: raw entry ${entryUlid.slice(0, 8)}`,
-        branch: 'main',
-      })
-      noteWriteOk = true
-    } catch (err) {
-      /** @fallback — Git down: entry row gets empty repoPath */
-      log.error({ err }, 'mcp note write failed')
-    }
-
-    /** @step 3 — Insert entry row (must exist before enqueue — worker reads it) */
     await deps.db.insert(entriesTable).values({
       lookupKey: entryKey,
-      userId,
       slug,
       vaultId: defaultVaultId,
       title,
@@ -181,31 +140,19 @@ export async function handleLogEntry(
       dedupHash: hash,
       type: 'thought',
       source: entrySource,
-      repoPath: noteWriteOk ? noteFilePath : '',
     })
 
-    /** @step 4 — Enqueue WriteJob for the 6-stage AI pipeline */
-    const job: WriteJob = {
-      type: 'write',
+    const job: ExtractionJob = {
+      type: 'extraction',
       jobId: entryUlid,
-      userId,
       enqueuedAt: now.toISOString(),
-      payload: {
-        userId,
-        rawEntry: {
-          content: trimmed,
-          source: entrySource,
-          metadata: defaultVaultId ? { vaultId: defaultVaultId } : undefined,
-        },
-        jobId: entryUlid,
-        entryId: entryKey,
-        enqueuedAt: now.toISOString(),
-        noteFilePath: noteWriteOk ? noteFilePath : undefined,
-      },
+      content: trimmed,
+      entryKey,
+      vaultId: defaultVaultId,
+      source: entrySource,
     }
-    await deps.producer.enqueueWrite(userId, job)
+    await deps.producer.enqueueExtraction(job)
 
-    /** @step 5 — Spawn write worker if not already running */
     deps.spawnWriteWorker(userId)
 
     return {
@@ -227,34 +174,12 @@ export async function handleLogEntry(
  * @summary Persist a fragment directly to a known thread, bypassing
  * the full AI ingestion pipeline.
  *
- * @remarks
- * The standard pipeline (`log_entry` → 6 stages) is optimized for
- * unstructured input where Robin decides classification. When the
- * caller already knows the thread, this handler skips vault classify,
- * fragmentation, and thread classify — going straight to persist.
- *
- * **Edge types created:**
- * - `FRAGMENT_IN_WIKI` — links fragment to its parent thread
- * - `FRAGMENT_MENTIONS_PERSON` — one per extracted person mention
- *
- * @param deps   - Injected dependencies (db, gateway, LLM calls, etc.)
+ * @param deps   - Injected dependencies (db, LLM calls, etc.)
  * @param input  - Fragment content, target thread slug, optional title/tags
  * @param userId - Authenticated user ID (`undefined` = not authenticated)
  * @returns MCP-shaped response with fragment/thread keys or error
  *
  * @throws Never — all errors caught and returned as `{ isError: true }`
- *
- * @see {@link resolveThreadBySlug} — strict slug resolution (no fuzzy auto-match)
- * @see {@link handleLogEntry} — full pipeline alternative
- *
- * @example
- * ```ts
- * const result = await handleLogFragment(deps,
- *   { content: 'Did a 5k run', threadSlug: 'fitness' },
- *   userId
- * )
- * // → { content: [{ text: '{"fragmentKey":"frag01...","threadSlug":"fitness"}' }] }
- * ```
  */
 export async function handleLogFragment(
   deps: McpServerDeps,
@@ -266,7 +191,6 @@ export async function handleLogFragment(
   },
   userId: string | undefined
 ) {
-  /** @gate — Reject unauthenticated requests */
   if (!userId) {
     return {
       content: [{ type: 'text' as const, text: 'Error: not authenticated' }],
@@ -274,7 +198,6 @@ export async function handleLogFragment(
     }
   }
 
-  /** @gate — Reject empty content */
   const trimmed = input.content?.trim()
   if (!trimmed) {
     return {
@@ -283,7 +206,6 @@ export async function handleLogFragment(
     }
   }
 
-  /** @gate — Reject missing threadSlug */
   if (!input.threadSlug?.trim()) {
     return {
       content: [{ type: 'text' as const, text: 'Error: threadSlug is required' }],
@@ -294,13 +216,10 @@ export async function handleLogFragment(
   try {
     const resolverDeps: McpResolverDeps = {
       db: deps.db,
-      gatewayClient: deps.gatewayClient,
     }
 
-    /** @step 1 — Resolve thread by exact slug (no fuzzy auto-resolution) */
-    const threadResult = await resolveThreadBySlug(resolverDeps, userId, input.threadSlug.trim())
+    const threadResult = await resolveThreadBySlug(resolverDeps, input.threadSlug.trim())
 
-    /** @gate — Thread not found → return error with suggestions */
     if ('error' in threadResult) {
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(threadResult) }],
@@ -308,10 +227,9 @@ export async function handleLogFragment(
       }
     }
 
-    /** @step 2 — Entity extraction (fail-open) */
+    // Entity extraction (fail-open)
     let personKeys: string[] = []
     let newPeople: Array<{ personKey: string; canonicalName: string }> = []
-    let extractionStatus: 'completed' | 'failed' = 'failed'
     try {
       const knownPeople = await deps.loadUserPeople(userId)
       const knownPeopleJson =
@@ -347,155 +265,77 @@ export async function handleLogFragment(
           })
         }
       }
-      extractionStatus = 'completed'
     } catch (err) {
-      /** @fallback — LLM down: continue without people edges */
       log.warn({ err, userId }, 'log_fragment entity extraction failed (continuing)')
     }
 
-    /** @step 3 — Generate fragment identifiers (key, ULID, slug, filename) */
+    // Generate fragment identifiers
     const fragKey = makeLookupKey('frag')
     const { ulid: fragUlid } = parseLookupKey(fragKey)
     const title = input.title?.trim() || trimmed.slice(0, 80)
     const fragSlug = `${generateSlug(title)}-${fragUlid.slice(0, 6).toLowerCase()}`
     const now = new Date()
-    const today = now.toISOString().slice(0, 10).replace(/-/g, '')
-    const fragFilename = composeFilename({
-      date: today,
-      slug: fragSlug,
-      type: 'frag',
-      ulid: fragUlid,
-    })
-    const fragPath = `fragments/${fragFilename}`
 
-    /** @step 4 — Assemble fragment frontmatter (always RESOLVED observation) */
-    const frontmatter = assembleFragmentFrontmatter({
-      title,
-      type: 'observation',
-      date: today,
-      tags: input.tags ?? [],
-      wikiKeys: [threadResult.lookupKey],
-      personKeys,
-      relatedFragmentKeys: [],
-      status: 'RESOLVED',
-      confidence: 1,
-      sourceSpan: '',
-      suggestedSlug: fragSlug,
-      wikiLinks: [],
-      brokenLinks: [],
-      entityExtractionStatus: extractionStatus,
-    })
-
-    /** @step 5 — Build person markdown files for newly discovered people */
-    const personFiles: Array<{ path: string; content: string }> = []
-    for (const person of newPeople) {
-      const { ulid: personUlid } = parseLookupKey(person.personKey)
-      const personSlug = generateSlug(person.canonicalName)
-      const personFilename = composeFilename({
-        date: today,
-        slug: personSlug,
-        type: 'person',
-        ulid: personUlid,
-      })
-      const personFm = assemblePersonFrontmatter({
-        type: 'person',
-        state: 'RESOLVED',
-        verified: false,
-        canonicalName: person.canonicalName,
-        aliases: [],
-        fragmentKeys: [fragKey],
-        lastRebuiltAt: null,
-        wikiLinks: [],
-        brokenLinks: [],
-      })
-      personFiles.push({
-        path: `people/${personFilename}`,
-        content: personFm,
-      })
-    }
-
-    /** @step 6 — Write fragment + person files to git via batchWrite */
-    let repoPath = fragPath
-    try {
-      await deps.gatewayClient.batchWrite({
-        userId,
-        files: [{ path: fragPath, content: `${frontmatter}\n${trimmed}` }, ...personFiles],
-        message: `fragment: ${title}`,
-        branch: 'main',
-      })
-    } catch (err) {
-      /** @fallback — Gateway down: fragment row gets empty repoPath */
-      log.error({ err, userId }, 'log_fragment git write failed')
-      repoPath = ''
-    }
-
-    /** @step 7a — Insert fragment row */
+    // Insert fragment row
     await deps.db.insert(fragmentsTable).values({
       lookupKey: fragKey,
-      userId,
       slug: fragSlug,
       title,
       type: 'observation',
       tags: input.tags ?? [],
       entryId: null,
       state: 'RESOLVED',
-      repoPath,
+      content: trimmed,
     })
 
-    /** @step 7b — Insert FRAGMENT_IN_WIKI edge */
+    // Insert FRAGMENT_IN_WIKI edge
     await deps.db
       .insert(edgesTable)
       .values({
         id: crypto.randomUUID(),
-        userId,
         srcType: 'fragment',
         srcId: fragKey,
         dstType: 'wiki',
         dstId: threadResult.lookupKey,
         edgeType: 'FRAGMENT_IN_WIKI',
-      } as any)
+      })
       .onConflictDoNothing()
 
-    /** @step 7c — Insert FRAGMENT_MENTIONS_PERSON edges (one per person) */
+    // Insert FRAGMENT_MENTIONS_PERSON edges (one per person)
     for (const personKey of personKeys) {
       await deps.db
         .insert(edgesTable)
         .values({
           id: crypto.randomUUID(),
-          userId,
           srcType: 'fragment',
           srcId: fragKey,
           dstType: 'person',
           dstId: personKey,
           edgeType: 'FRAGMENT_MENTIONS_PERSON',
-        } as any)
+        })
         .onConflictDoNothing()
     }
 
-    /** @step 7d — Insert new people rows (for people not yet in DB) */
+    // Insert new people rows (for people not yet in DB)
     for (const person of newPeople) {
       await deps.db
         .insert(peopleTable)
         .values({
           lookupKey: person.personKey,
-          userId,
           slug: generateSlug(person.canonicalName),
           name: person.canonicalName,
+          canonicalName: person.canonicalName,
           state: 'RESOLVED',
-          sections: {
-            canonicalName: person.canonicalName,
-            aliases: [],
-            verified: false,
-            fragmentKeys: [fragKey],
-          },
-        } as any)
+          aliases: [],
+          verified: false,
+        })
         .onConflictDoNothing()
     }
 
-    /** @step 8 — Mark thread DIRTY for wiki regen (timeline + synthesis) */
+    // Mark thread for wiki regen (PENDING signals regen needed)
     await deps.db
       .update(threadsTable)
-      .set({ state: 'DIRTY', updatedAt: now } as any)
+      .set({ state: 'PENDING', updatedAt: now })
       .where(eq(threadsTable.lookupKey, threadResult.lookupKey))
 
     const result = {
@@ -510,6 +350,245 @@ export async function handleLogFragment(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     log.error({ err, userId }, 'mcp log_fragment failed')
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${message}` }],
+      isError: true as const,
+    }
+  }
+}
+
+/**
+ * Handle the `create_wiki_type` MCP tool call.
+ *
+ * @summary Create a custom wiki type with guardrails for slug format,
+ * conflict detection, and required fields.
+ */
+export async function handleCreateWikiType(
+  deps: McpServerDeps,
+  input: {
+    slug: string
+    name: string
+    shortDescriptor: string
+    descriptor: string
+    prompt?: string
+  }
+) {
+  try {
+    // Normalize slug
+    const slug = input.slug
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+
+    if (!slug) {
+      return {
+        content: [{ type: 'text' as const, text: 'Error: slug is required and must contain alphanumeric characters or hyphens' }],
+        isError: true as const,
+      }
+    }
+
+    if (!input.name?.trim()) {
+      return {
+        content: [{ type: 'text' as const, text: 'Error: name is required' }],
+        isError: true as const,
+      }
+    }
+
+    if (!input.shortDescriptor?.trim()) {
+      return {
+        content: [{ type: 'text' as const, text: 'Error: shortDescriptor is required' }],
+        isError: true as const,
+      }
+    }
+
+    if (!input.descriptor?.trim()) {
+      return {
+        content: [{ type: 'text' as const, text: 'Error: descriptor is required' }],
+        isError: true as const,
+      }
+    }
+
+    // Check for slug conflict
+    const [existing] = await deps.db
+      .select({ slug: wikiTypesTable.slug })
+      .from(wikiTypesTable)
+      .where(eq(wikiTypesTable.slug, slug))
+    if (existing) {
+      return {
+        content: [{ type: 'text' as const, text: `Error: wiki type "${slug}" already exists` }],
+        isError: true as const,
+      }
+    }
+
+    const prompt = input.prompt?.trim() || `You are Quill. Generate a ${input.name.trim()} document.`
+
+    const [created] = await deps.db
+      .insert(wikiTypesTable)
+      .values({
+        slug,
+        name: input.name.trim(),
+        shortDescriptor: input.shortDescriptor.trim(),
+        descriptor: input.descriptor.trim(),
+        prompt,
+        isDefault: false,
+        userModified: true,
+      })
+      .returning()
+
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(created) }],
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    log.error({ err }, 'mcp create_wiki_type failed')
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${message}` }],
+      isError: true as const,
+    }
+  }
+}
+
+/**
+ * Handle the `create_wiki` MCP tool call.
+ *
+ * @summary Creates a new wiki with an inferred type based on description.
+ * Slug collisions are resolved with a nanoid(6) suffix.
+ */
+export async function handleCreateWiki(
+  deps: McpServerDeps,
+  input: { title: string; description?: string },
+  userId: string | undefined
+) {
+  if (!userId) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: not authenticated' }],
+      isError: true as const,
+    }
+  }
+
+  if (!input.title?.trim()) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: title is required' }],
+      isError: true as const,
+    }
+  }
+
+  try {
+    const slug = generateSlug(input.title.trim())
+    const finalSlug = await resolveWikiSlug(deps.db, slug)
+    const lookupKey = makeLookupKey('wiki')
+    const inferredType = inferWikiType(input.description ?? '')
+
+    await deps.db.insert(threadsTable).values({
+      lookupKey,
+      slug: finalSlug,
+      name: input.title.trim(),
+      type: inferredType,
+      state: 'PENDING',
+      prompt: '',
+    })
+
+    const result = { slug: finalSlug, lookupKey, inferredType }
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    log.error({ err, userId }, 'mcp create_wiki failed')
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${message}` }],
+      isError: true as const,
+    }
+  }
+}
+
+/**
+ * Handle the `edit_wiki` MCP tool call.
+ *
+ * @summary Updates a wiki's canonical content and stores the previous
+ * content as an edit record tagged `source: 'mcp'`.
+ */
+export async function handleEditWiki(
+  deps: McpServerDeps,
+  input: { wikiSlug: string; content: string },
+  userId: string | undefined
+) {
+  if (!userId) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: not authenticated' }],
+      isError: true as const,
+    }
+  }
+
+  if (!input.wikiSlug?.trim()) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: wikiSlug is required' }],
+      isError: true as const,
+    }
+  }
+
+  if (!input.content?.trim()) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: content is required' }],
+      isError: true as const,
+    }
+  }
+
+  try {
+    // Resolve wiki by exact slug match (exclude soft-deleted)
+    const [wiki] = await deps.db
+      .select({
+        lookupKey: threadsTable.lookupKey,
+        slug: threadsTable.slug,
+        content: threadsTable.content,
+      })
+      .from(threadsTable)
+      .where(and(eq(threadsTable.slug, input.wikiSlug.trim()), isNull(threadsTable.deletedAt)))
+      .limit(1)
+
+    if (!wiki) {
+      // Provide suggestions via resolveThreadBySlug
+      const resolverDeps: McpResolverDeps = { db: deps.db }
+      const resolved = await resolveThreadBySlug(resolverDeps, input.wikiSlug.trim())
+      if ('error' in resolved) {
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(resolved) }],
+          isError: true as const,
+        }
+      }
+      // Shouldn't reach here if resolveThreadBySlug returned an error
+      return {
+        content: [{ type: 'text' as const, text: `Error: wiki "${input.wikiSlug}" not found` }],
+        isError: true as const,
+      }
+    }
+
+    const previousContent = wiki.content || ''
+
+    // Update canonical content
+    await deps.db
+      .update(threadsTable)
+      .set({ content: input.content, updatedAt: new Date() })
+      .where(eq(threadsTable.lookupKey, wiki.lookupKey))
+
+    // Store previous content as edit record (diff computation deferred)
+    await deps.db.insert(editsTable).values({
+      id: nanoid(),
+      objectType: 'wiki',
+      objectId: wiki.lookupKey,
+      type: 'addition',
+      content: previousContent,
+      diff: '',
+      source: 'mcp',
+    })
+
+    const result = { wikiSlug: wiki.slug, lookupKey: wiki.lookupKey, recorded: true }
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    log.error({ err, userId }, 'mcp edit_wiki failed')
     return {
       content: [{ type: 'text' as const, text: `Error: ${message}` }],
       isError: true as const,

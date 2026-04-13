@@ -8,6 +8,27 @@
       "when": 1775892107552,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781330400000,
+      "tag": "0002_content_storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781416800000,
+      "tag": "0003_wiki_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781503200000,
+      "tag": "0004_public_wikis",
+      "breakpoints": true
     }
   ]
 }
