@@ -1,12 +1,16 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { eq, and, isNull, inArray } from 'drizzle-orm'
+import { zValidator } from '@hono/zod-validator'
 import { sessionMiddleware } from '../middleware/session.js'
 import { db } from '../db/client.js'
-import { people } from '../db/schema.js'
+import { people, edges, fragments } from '../db/schema.js'
 import { logger } from '../lib/logger.js'
+import { validationHook } from '../lib/validation.js'
 import {
-  personWithBacklinksResponseSchema,
+  personDetailResponseSchema,
   personListResponseSchema,
+  updatePersonBodySchema,
+  personListQuerySchema,
 } from '../schemas/people.schema.js'
 
 const log = logger.child({ component: 'people' })
@@ -14,33 +18,92 @@ const log = logger.child({ component: 'people' })
 const peopleRouter = new Hono()
 peopleRouter.use('*', sessionMiddleware)
 
-// GET /people — list all people
+// GET /people — list all people with pagination
 peopleRouter.get('/', async (c) => {
-  const rows = await db.select().from(people).orderBy(people.name)
+  const query = personListQuerySchema.safeParse({
+    limit: c.req.query('limit'),
+    offset: c.req.query('offset'),
+  })
+  const limit = query.success ? query.data.limit : 50
+  const offset = query.success ? query.data.offset : 0
+
+  const rows = await db
+    .select()
+    .from(people)
+    .orderBy(people.name)
+    .limit(limit)
+    .offset(offset)
 
   return c.json(
     personListResponseSchema.parse({ people: rows.map((r) => ({ ...r, id: r.lookupKey })) })
   )
 })
 
-// GET /people/:id — get person with backlinks
-// TODO(phase-6): query backlinks via edges table (FRAGMENT_MENTIONS_PERSON)
+// GET /people/:id — detail with content and backlinks (fragments mentioning this person)
 peopleRouter.get('/:id', async (c) => {
   const id = c.req.param('id')
 
   const [person] = await db.select().from(people).where(eq(people.lookupKey, id))
   if (!person) return c.json({ error: 'Not found' }, 404)
 
-  // TODO(phase-6): query via edges table
-  const backlinkFragmentIds: string[] = []
-  const backlinkThreadIds: string[] = []
+  // Query backlinks: edges where dstId = this person and edgeType = FRAGMENT_MENTIONS_PERSON
+  const mentionEdges = await db
+    .select()
+    .from(edges)
+    .where(
+      and(
+        eq(edges.dstId, id),
+        eq(edges.edgeType, 'FRAGMENT_MENTIONS_PERSON'),
+        isNull(edges.deletedAt)
+      )
+    )
+
+  const backlinks: { id: string; title: string }[] = []
+  const srcIds = mentionEdges.map((e) => e.srcId)
+  if (srcIds.length) {
+    const rows = await db
+      .select({ key: fragments.lookupKey, title: fragments.title })
+      .from(fragments)
+      .where(inArray(fragments.lookupKey, srcIds))
+    for (const r of rows) backlinks.push({ id: r.key, title: r.title })
+  }
 
   return c.json(
-    personWithBacklinksResponseSchema.parse({
+    personDetailResponseSchema.parse({
       ...person,
       id: person.lookupKey,
-      backlinkFragmentIds,
-      backlinkThreadIds,
+      content: person.content ?? '',
+      backlinks,
+    })
+  )
+})
+
+// PUT /people/:id — update person
+peopleRouter.put('/:id', zValidator('json', updatePersonBodySchema, validationHook), async (c) => {
+  const id = c.req.param('id')
+  const body = c.req.valid('json')
+
+  const [existing] = await db.select().from(people).where(eq(people.lookupKey, id))
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+
+  const updates: Record<string, unknown> = { updatedAt: new Date() }
+  if (body.name != null) updates.name = body.name
+  if (body.relationship != null) updates.relationship = body.relationship
+  if (body.aliases != null) updates.aliases = body.aliases
+  if (body.content != null) updates.content = body.content
+
+  const [person] = await db
+    .update(people)
+    .set(updates)
+    .where(eq(people.lookupKey, id))
+    .returning()
+
+  return c.json(
+    personDetailResponseSchema.parse({
+      ...person,
+      id: person.lookupKey,
+      content: person.content ?? '',
+      backlinks: [],
     })
   )
 })

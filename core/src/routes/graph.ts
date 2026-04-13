@@ -22,12 +22,29 @@ graphRouter.use('*', sessionMiddleware)
 // GET /graph — build graph nodes and edges from the edges table
 graphRouter.get('/', async (c) => {
   const vaultId = c.req.query('vaultId')
+  const wikiId = c.req.query('wikiId')
 
   // 1. Query all edges
   let edgeRows = await db.select().from(edges).where(isNull(edges.deletedAt))
 
-  // 2. If vaultId filter, find entries/fragments in that vault, then filter edges
-  if (vaultId) {
+  // 2a. If wikiId filter, return only subgraph for that wiki (its fragments + their people)
+  if (wikiId) {
+    // Find FRAGMENT_IN_WIKI edges for this wiki
+    const wikiFragEdges = edgeRows.filter(
+      (e) => e.edgeType === 'FRAGMENT_IN_WIKI' && e.dstId === wikiId
+    )
+    const fragIds = new Set(wikiFragEdges.map((e) => e.srcId))
+
+    // Include: wiki-fragment edges + any edges from those fragments (e.g. mentions)
+    edgeRows = edgeRows.filter(
+      (e) =>
+        (e.edgeType === 'FRAGMENT_IN_WIKI' && e.dstId === wikiId) ||
+        (fragIds.has(e.srcId) && e.srcId !== wikiId)
+    )
+  }
+
+  // 2b. If vaultId filter, find entries/fragments in that vault, then filter edges
+  if (vaultId && !wikiId) {
     const vaultEntryKeys = await db
       .select({ key: entries.lookupKey })
       .from(entries)
@@ -80,7 +97,7 @@ graphRouter.get('/', async (c) => {
     idsByType[n.type].push(n.id)
   }
 
-  const labelMap: Record<string, { label: string; vaultId: string }> = {}
+  const labelMap: Record<string, { label: string; vaultId: string; snippet: string }> = {}
 
   if (idsByType.entry?.length) {
     const rows = await db
@@ -88,6 +105,7 @@ graphRouter.get('/', async (c) => {
         key: entries.lookupKey,
         title: entries.title,
         vaultId: entries.vaultId,
+        content: entries.content,
       })
       .from(entries)
       .where(inArray(entries.lookupKey, idsByType.entry))
@@ -95,6 +113,7 @@ graphRouter.get('/', async (c) => {
       labelMap[`entry:${r.key}`] = {
         label: r.title || 'Untitled Entry',
         vaultId: r.vaultId ?? '',
+        snippet: (r.content ?? '').slice(0, 100),
       }
   }
   if (idsByType.fragment?.length) {
@@ -103,6 +122,7 @@ graphRouter.get('/', async (c) => {
         key: fragments.lookupKey,
         title: fragments.title,
         entryId: fragments.entryId,
+        content: fragments.content,
       })
       .from(fragments)
       .where(inArray(fragments.lookupKey, idsByType.fragment))
@@ -120,28 +140,52 @@ graphRouter.get('/', async (c) => {
       labelMap[`fragment:${r.key}`] = {
         label: r.title || 'Untitled Fragment',
         vaultId: entryVaults[r.entryId] ?? '',
+        snippet: (r.content ?? '').slice(0, 100),
       }
   }
   if (idsByType.thread?.length) {
     const rows = await db
-      .select({ key: wikis.lookupKey, name: wikis.name })
+      .select({ key: wikis.lookupKey, name: wikis.name, content: wikis.content })
       .from(wikis)
       .where(inArray(wikis.lookupKey, idsByType.thread))
-    for (const r of rows) labelMap[`thread:${r.key}`] = { label: r.name, vaultId: '' }
+    for (const r of rows)
+      labelMap[`thread:${r.key}`] = {
+        label: r.name,
+        vaultId: '',
+        snippet: (r.content ?? '').slice(0, 100),
+      }
+  }
+  if (idsByType.wiki?.length) {
+    const rows = await db
+      .select({ key: wikis.lookupKey, name: wikis.name, content: wikis.content })
+      .from(wikis)
+      .where(inArray(wikis.lookupKey, idsByType.wiki))
+    for (const r of rows)
+      labelMap[`wiki:${r.key}`] = {
+        label: r.name,
+        vaultId: '',
+        snippet: (r.content ?? '').slice(0, 100),
+      }
   }
   if (idsByType.vault?.length) {
     const rows = await db
       .select({ id: vaults.id, name: vaults.name })
       .from(vaults)
       .where(inArray(vaults.id, idsByType.vault))
-    for (const r of rows) labelMap[`vault:${r.id}`] = { label: r.name, vaultId: r.id }
+    for (const r of rows)
+      labelMap[`vault:${r.id}`] = { label: r.name, vaultId: r.id, snippet: '' }
   }
   if (idsByType.person?.length) {
     const rows = await db
-      .select({ key: people.lookupKey, name: people.name })
+      .select({ key: people.lookupKey, name: people.name, content: people.content })
       .from(people)
       .where(inArray(people.lookupKey, idsByType.person))
-    for (const r of rows) labelMap[`person:${r.key}`] = { label: r.name, vaultId: '' }
+    for (const r of rows)
+      labelMap[`person:${r.key}`] = {
+        label: r.name,
+        vaultId: '',
+        snippet: (r.content ?? '').slice(0, 100),
+      }
   }
 
   // 5. Build nodes array
@@ -153,6 +197,7 @@ graphRouter.get('/', async (c) => {
       type: n.type as 'wiki' | 'fragment' | 'person' | 'entry' | 'vault',
       vaultId: resolved?.vaultId ?? '',
       size: n.edgeCount,
+      snippet: resolved?.snippet ?? '',
     }
   })
 
