@@ -45,6 +45,17 @@ export const updateThreadBodySchema = z.object({
 
 export { queuedResponseSchema as threadRegenerateResponseSchema }
 
+// ── Bouncer mode schemas ──────────────────────────────────────────────────
+
+export const bouncerModeBodySchema = z.object({
+  mode: z.enum(['auto', 'review']),
+})
+
+export const bouncerModeResponseSchema = z.object({
+  id: lookupKeySchema,
+  bouncerMode: z.enum(['auto', 'review']),
+})
+
 // ── Publish schemas ────────────────────────────────────────────────────────
 
 export const publishWikiResponseSchema = z.object({

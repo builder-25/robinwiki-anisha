@@ -15,6 +15,8 @@ import {
   threadWithWikiResponseSchema,
   updateThreadBodySchema,
   publishWikiResponseSchema,
+  bouncerModeBodySchema,
+  bouncerModeResponseSchema,
 } from '../schemas/wikis.schema.js'
 
 const log = logger.child({ component: 'wikis' })
@@ -141,6 +143,22 @@ wikisRouter.post('/:id/regenerate', async (c) => {
     log.error({ wikiKey: id, error: message }, 'wiki regen failed')
     return c.json({ error: 'Regeneration failed', detail: message }, 500)
   }
+})
+
+// PATCH /wikis/:id/bouncer — toggle bouncer mode (auto/review)
+wikisRouter.patch('/:id/bouncer', zValidator('json', bouncerModeBodySchema, validationHook), async (c) => {
+  const id = c.req.param('id')
+  const { mode } = c.req.valid('json')
+
+  const [wiki] = await db.select().from(wikis).where(eq(wikis.lookupKey, id))
+  if (!wiki) return c.json({ error: 'Not found' }, 404)
+
+  await db
+    .update(wikis)
+    .set({ bouncerMode: mode, updatedAt: new Date() })
+    .where(eq(wikis.lookupKey, id))
+
+  return c.json(bouncerModeResponseSchema.parse({ id, bouncerMode: mode }))
 })
 
 // POST /wikis/:targetId/merge — merge source thread into target

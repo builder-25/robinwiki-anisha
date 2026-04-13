@@ -9,6 +9,7 @@ export const graphNodeSchema = z.object({
   type: z.enum(['wiki', 'fragment', 'person', 'entry', 'vault']),
   vaultId: z.string(),
   size: z.number(),
+  snippet: z.string().default(''),
 })
 
 export const graphEdgeSchema = z.object({

@@ -217,6 +217,7 @@ export const wikis = pgTable(
     publishedSlug: text('published_slug'),
     publishedAt: timestamp('published_at'),
     regenerate: boolean('regenerate').notNull().default(true),
+    bouncerMode: text('bouncer_mode').notNull().default('auto'), // 'auto' | 'review'
     embedding: vector('embedding', { dimensions: 1536 }),
     searchVector: tsvector('search_vector'),
   },

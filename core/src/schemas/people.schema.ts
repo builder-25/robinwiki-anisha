@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { lookupKeySchema, objectStateSchema, queuedResponseSchema } from './base.schema.js'
+import { lookupKeySchema, objectStateSchema, paginationQuerySchema, queuedResponseSchema } from './base.schema.js'
 
 // ── Response schemas ────────────────────────────────────────────────────────
 
@@ -18,6 +18,17 @@ export const personResponseSchema = z.object({
   updatedAt: z.coerce.date(),
 })
 
+/** Person detail with content and backlinks from edges table */
+export const personDetailResponseSchema = personResponseSchema.extend({
+  content: z.string(),
+  backlinks: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+    })
+  ),
+})
+
 export const personWithBacklinksResponseSchema = personResponseSchema.extend({
   backlinkFragmentIds: z.array(z.string()),
   backlinkThreadIds: z.array(z.string()),
@@ -25,6 +36,21 @@ export const personWithBacklinksResponseSchema = personResponseSchema.extend({
 
 export const personListResponseSchema = z.object({
   people: z.array(personResponseSchema),
+})
+
+// ── Request schemas ─────────────────────────────────────────────────────────
+
+export const updatePersonBodySchema = z.object({
+  name: z.string().optional(),
+  relationship: z.string().optional(),
+  aliases: z.array(z.string()).optional(),
+  content: z.string().optional(),
+})
+
+// ── Query schemas ───────────────────────────────────────────────────────────
+
+export const personListQuerySchema = paginationQuerySchema.extend({
+  offset: z.coerce.number().int().min(0).default(0),
 })
 
 export { queuedResponseSchema as personRegenerateResponseSchema }

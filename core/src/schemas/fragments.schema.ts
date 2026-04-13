@@ -21,6 +21,17 @@ export const fragmentWithContentResponseSchema = fragmentResponseSchema.extend({
   content: z.string(),
 })
 
+/** Fragment detail with backlinks resolved from edges table */
+export const fragmentDetailResponseSchema = fragmentWithContentResponseSchema.extend({
+  backlinks: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      type: z.string(),
+    })
+  ),
+})
+
 export const fragmentListResponseSchema = z.object({
   fragments: z.array(fragmentResponseSchema),
 })
@@ -40,6 +51,14 @@ export const updateFragmentBodySchema = z.object({
   tags: z.array(z.string()).optional(),
 })
 
+/** Body for accept/reject review endpoints */
+export const fragmentReviewBodySchema = z.object({
+  wikiId: z.string().min(1, 'wikiId is required'),
+})
+
 // ── Query schemas ───────────────────────────────────────────────────────────
 
-export const fragmentListQuerySchema = paginationQuerySchema
+export const fragmentListQuerySchema = paginationQuerySchema.extend({
+  offset: z.coerce.number().int().min(0).default(0),
+  vaultId: z.string().optional(),
+})
