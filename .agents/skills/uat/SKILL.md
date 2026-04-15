@@ -1,19 +1,27 @@
 ---
 name: uat
-description: Run the Robin User Acceptance Test suite end-to-end against the M2+M3 stack. Boots the server, seeds the OpenRouter key, signs in as the env-seeded user, runs the canonical ingest acceptance test (Sarah example), validates the failure-path self-healing loop, tests wiki types setup, content storage, wiki publishing (including unauthenticated public access), wiki regeneration, and writes a structured run report. Asserts deterministic API contracts; observes (does not fail on) probabilistic LLM output.
+description: Run the Robin User Acceptance Test suite end-to-end against the M2-M10 stack. Boots the server, seeds the OpenRouter key, signs in as the env-seeded user, runs the canonical ingest acceptance test (Sarah example), validates the failure-path self-healing loop, tests wiki types setup, content storage, wiki publishing (including unauthenticated public access), wiki regeneration, M6 API routes (cross-vault listing, enriched detail, regenerate/bouncer toggles, fragment accept/reject, people update), M9 audit log, M10 trust gates (spawn, confidence, source metadata), and writes a structured run report. Asserts deterministic API contracts; observes (does not fail on) probabilistic LLM output.
 ---
 
-UAT boots Robin from a clean DB, runs the canonical M2 ingest loop and M3 wiki
-composition features end-to-end, and writes a machine-readable run report. It is
-**destructive** — Phase 1 step 5 wipes and re-pushes the schema unconditionally.
-Do not point it at a database you care about.
+> **Shell requirement:** All steps use bash. If your default shell is zsh, this
+> is fine — Step 2 wraps the `${!v}` indirect expansion in `bash -c`, and
+> Step 13 wraps `read < <(...)` process substitution in `bash -c`. All other
+> syntax is POSIX-compatible.
+
+UAT boots Robin from a clean DB, runs the canonical M2 ingest loop, M3 wiki
+composition, M6 API routes, M9 audit log, and M10 trust gates end-to-end, and
+writes a machine-readable run report. It is **destructive** — Phase 1 step 5
+wipes and re-pushes the schema unconditionally. Do not point it at a database
+you care about.
 
 Two classes of result:
 
 - **Assert** — deterministic API contracts. Boot, auth, dedup, state-machine
   transitions, schema shape, failure-path audit columns, wiki types, content
-  storage, publishing, edit audit trail. Failures here exit non-zero and fail
-  the run.
+  storage, publishing, edit audit trail, cross-vault listing, enriched detail,
+  regenerate/bouncer toggles, fragment accept/reject, people update, audit log,
+  timeline, spawn, confidence, source metadata. Failures here exit non-zero and
+  fail the run.
 - **Observe** — probabilistic LLM output. Fragment counts, entity names, embedding
   presence, mention/wiki edge counts, end-to-end latency, wiki regeneration
   output. Recorded in the report but never fail the run. M2's retro calls out
@@ -48,10 +56,15 @@ echo "[ok] repo root confirmed: $(pwd)"
 set -e
 set -a; . core/.env; set +a
 
-missing=""
-for v in MASTER_KEY BETTER_AUTH_SECRET INITIAL_USERNAME INITIAL_PASSWORD DATABASE_URL REDIS_URL; do
-  if [ -z "${!v:-}" ]; then missing="$missing $v"; fi
-done
+# Use bash -c for ${!v} indirect expansion (not available in zsh)
+missing=$(bash -c '
+  set -a; . core/.env; set +a
+  missing=""
+  for v in MASTER_KEY BETTER_AUTH_SECRET INITIAL_USERNAME INITIAL_PASSWORD DATABASE_URL REDIS_URL; do
+    if [ -z "${!v:-}" ]; then missing="$missing $v"; fi
+  done
+  echo "$missing"
+')
 if [ -n "$missing" ]; then
   echo "[fail] core/.env missing required vars:$missing"
   exit 1
@@ -125,6 +138,7 @@ WIKI_ID=
 WIKI_TYPE_ID=
 PUBLISHED_SLUG=
 CUSTOM_TYPE_SLUG=
+SPAWN_WIKI_ID=
 SERVER_PID=
 EOF
 
@@ -198,6 +212,15 @@ set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
+# Pre-build workspace packages so core can import them
+echo "[info] building workspace packages"
+if pnpm build > .uat/runs/build.log 2>&1; then
+  echo "[ok] workspace packages built"
+else
+  tail -30 .uat/runs/build.log
+  halt "pnpm build failed — see .uat/runs/build.log"
+fi
+
 echo "[info] resetting schema via drizzle-kit push --force"
 if pnpm --filter @robin/core db:push --force > .uat/runs/db-push.log 2>&1; then
   assert "db-push" "pass" "schema pushed from drizzle"
@@ -233,6 +256,38 @@ for col in canonical_name aliases verified; do
     assert "schema.people.${col}" "fail" "column missing"
   fi
 done
+
+# M10: fragments.confidence column
+CONF_EXISTS=$(psql_one "SELECT 1 FROM information_schema.columns WHERE table_name='fragments' AND column_name='confidence'")
+if [ "$CONF_EXISTS" = "1" ]; then
+  assert "schema.fragments.confidence" "pass" "column present"
+else
+  assert "schema.fragments.confidence" "fail" "column missing"
+fi
+
+# M10: raw_sources.source_metadata column
+SM_EXISTS=$(psql_one "SELECT 1 FROM information_schema.columns WHERE table_name='raw_sources' AND column_name='source_metadata'")
+if [ "$SM_EXISTS" = "1" ]; then
+  assert "schema.raw_sources.source_metadata" "pass" "column present"
+else
+  assert "schema.raw_sources.source_metadata" "fail" "column missing"
+fi
+
+# M9: audit_log table
+AL_EXISTS=$(psql_one "SELECT 1 FROM information_schema.tables WHERE table_name='audit_log'")
+if [ "$AL_EXISTS" = "1" ]; then
+  assert "schema.audit_log" "pass" "table present"
+else
+  assert "schema.audit_log" "fail" "table missing"
+fi
+
+# M10: wikis.bouncer_mode column
+BM_EXISTS=$(psql_one "SELECT 1 FROM information_schema.columns WHERE table_name='wikis' AND column_name='bouncer_mode'")
+if [ "$BM_EXISTS" = "1" ]; then
+  assert "schema.wikis.bouncer_mode" "pass" "column present"
+else
+  assert "schema.wikis.bouncer_mode" "fail" "column missing"
+fi
 ```
 
 ### Step 6 -- Boot server
@@ -244,11 +299,13 @@ source .uat/runs/helpers.sh
 
 BOOT_START=$(date +%s%3N)
 
-# Start in background, detached so we can outlive the current bash
-nohup pnpm dev > .uat/runs/server.log 2>&1 &
+# Start core directly with tsx watch (packages already built in Step 5)
+cd core
+nohup pnpm dev > ../.uat/runs/server.log 2>&1 &
 SERVER_PID=$!
+cd ..
 save_state SERVER_PID "$SERVER_PID"
-echo "[info] started pnpm dev (pid=${SERVER_PID})"
+echo "[info] started core dev server (pid=${SERVER_PID})"
 
 # Wait for /health — 30s budget
 for i in $(seq 1 30); do
@@ -275,7 +332,8 @@ set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-if OPENROUTER_API_KEY="$OPENROUTER_API_KEY" pnpm seed-openrouter-key > .uat/runs/seed-key.log 2>&1; then
+# Source core/.env so DATABASE_URL is available to the seed script
+if bash -c 'set -a; . core/.env; set +a; OPENROUTER_API_KEY="'"$OPENROUTER_API_KEY"'" pnpm seed-openrouter-key' > .uat/runs/seed-key.log 2>&1; then
   assert "boot.seed_openrouter_key" "pass" "seed script exit 0"
 else
   tail -20 .uat/runs/seed-key.log
@@ -508,36 +566,43 @@ set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# Poll both Sarah and edge entries to a terminal ingest_status (resolved or failed).
+# Poll both Sarah and edge entries to a terminal ingest_status (processed or failed).
+# The codebase uses "processed" as the terminal success status for ingestStatus.
 # We read ingestStatus from the API and the audit columns directly from postgres —
 # the API response schema does not expose attempt_count / last_error.
-poll_entry() {
-  local id="$1" max=120 interval=3 elapsed=0
-  while [ $elapsed -lt $max ]; do
-    local resp
-    resp=$(curl -s -b "$COOKIE_JAR" "${BASE_URL}/entries/${id}" 2>/dev/null || echo '{}')
-    local ing
-    ing=$(echo "$resp" | jq -r '.ingestStatus // empty')
-    if [ "$ing" = "resolved" ] || [ "$ing" = "failed" ]; then
-      echo "$elapsed $ing"
-      return 0
-    fi
-    sleep $interval
-    elapsed=$((elapsed + interval))
-  done
-  echo "$elapsed timeout"
-  return 1
-}
+
+# Use bash -c for process substitution (read < <(...)) which is bash-only
+RESULT=$(bash -c '
+  source .uat/runs/state
+  poll_entry() {
+    local id="$1" max=120 interval=3 elapsed=0
+    while [ $elapsed -lt $max ]; do
+      local resp
+      resp=$(curl -s -b "$COOKIE_JAR" "${BASE_URL}/entries/${id}" 2>/dev/null || echo "{}")
+      local ing
+      ing=$(echo "$resp" | jq -r ".ingestStatus // empty")
+      if [ "$ing" = "processed" ] || [ "$ing" = "resolved" ] || [ "$ing" = "failed" ]; then
+        echo "$elapsed $ing"
+        return 0
+      fi
+      sleep $interval
+      elapsed=$((elapsed + interval))
+    done
+    echo "$elapsed timeout"
+    return 1
+  }
+  poll_entry "$1"
+' -- "$ENTRY_SARAH_ID")
+SARAH_SECS=$(echo "$RESULT" | awk '{print $1}')
+SARAH_FINAL=$(echo "$RESULT" | awk '{print $2}')
 
 INGEST_START=$(date +%s%3N)
 
-# Sarah
-read SARAH_SECS SARAH_FINAL < <(poll_entry "$ENTRY_SARAH_ID")
 SARAH_ATTEMPTS=$(psql_one "SELECT attempt_count FROM raw_sources WHERE lookup_key='${ENTRY_SARAH_ID}'")
 SARAH_LAST_AT=$(psql_one "SELECT last_attempt_at IS NOT NULL FROM raw_sources WHERE lookup_key='${ENTRY_SARAH_ID}'")
 SARAH_STATE=$(psql_one "SELECT state FROM raw_sources WHERE lookup_key='${ENTRY_SARAH_ID}'")
 
-if [ "$SARAH_FINAL" = "resolved" ] || [ "$SARAH_FINAL" = "failed" ]; then
+if [ "$SARAH_FINAL" = "processed" ] || [ "$SARAH_FINAL" = "resolved" ] || [ "$SARAH_FINAL" = "failed" ]; then
   assert "ingest.sarah_terminal" "pass" "ingestStatus=${SARAH_FINAL} after ${SARAH_SECS}s"
 else
   assert "ingest.sarah_terminal" "fail" "did not reach terminal state within 120s (last=${SARAH_FINAL})"
@@ -569,8 +634,35 @@ if [ "$SARAH_FINAL" = "failed" ]; then
 fi
 
 # Edge
-read EDGE_SECS EDGE_FINAL < <(poll_entry "$ENTRY_EDGE_ID")
-assert "ingest.edge_terminal" "$([ "$EDGE_FINAL" = "resolved" ] || [ "$EDGE_FINAL" = "failed" ] && echo pass || echo fail)" "ingestStatus=${EDGE_FINAL} after ${EDGE_SECS}s"
+EDGE_RESULT=$(bash -c '
+  source .uat/runs/state
+  poll_entry() {
+    local id="$1" max=120 interval=3 elapsed=0
+    while [ $elapsed -lt $max ]; do
+      local resp
+      resp=$(curl -s -b "$COOKIE_JAR" "${BASE_URL}/entries/${id}" 2>/dev/null || echo "{}")
+      local ing
+      ing=$(echo "$resp" | jq -r ".ingestStatus // empty")
+      if [ "$ing" = "processed" ] || [ "$ing" = "resolved" ] || [ "$ing" = "failed" ]; then
+        echo "$elapsed $ing"
+        return 0
+      fi
+      sleep $interval
+      elapsed=$((elapsed + interval))
+    done
+    echo "$elapsed timeout"
+    return 1
+  }
+  poll_entry "$1"
+' -- "$ENTRY_EDGE_ID")
+EDGE_SECS=$(echo "$EDGE_RESULT" | awk '{print $1}')
+EDGE_FINAL=$(echo "$EDGE_RESULT" | awk '{print $2}')
+
+if [ "$EDGE_FINAL" = "processed" ] || [ "$EDGE_FINAL" = "resolved" ] || [ "$EDGE_FINAL" = "failed" ]; then
+  assert "ingest.edge_terminal" "pass" "ingestStatus=${EDGE_FINAL} after ${EDGE_SECS}s"
+else
+  assert "ingest.edge_terminal" "fail" "ingestStatus=${EDGE_FINAL} after ${EDGE_SECS}s"
+fi
 observe "ingest.edge_final_status" "$EDGE_FINAL" ""
 
 INGEST_MS=$(( $(date +%s%3N) - INGEST_START ))
@@ -623,7 +715,7 @@ observe "ingest.sarah_wiki_edges" "$WIKI_EDGES" "expected 0 on greenfield per M2
 
 ## Phase 6 — Failure-path self-healing
 
-### Step 15 -- Retro headline test: kill key → fail → reseed → heal
+### Step 15 -- Retro headline test: kill key -> fail -> reseed -> heal
 
 ```bash
 set -e
@@ -683,8 +775,8 @@ else
 fi
 [ "$FAIL_LAST_AT" = "t" ] && assert "failpath.last_attempt_at" "pass" "populated" || assert "failpath.last_attempt_at" "fail" "NULL"
 
-# 4. Re-seed the key
-OPENROUTER_API_KEY="$OPENROUTER_API_KEY" pnpm seed-openrouter-key > .uat/runs/reseed-key.log 2>&1
+# 4. Re-seed the key (source core/.env so DATABASE_URL is available)
+bash -c 'set -a; . core/.env; set +a; OPENROUTER_API_KEY="'"$OPENROUTER_API_KEY"'" pnpm seed-openrouter-key' > .uat/runs/reseed-key.log 2>&1
 RESEED=$(psql_one "SELECT count(*) FROM configs WHERE kind='llm_key' AND key='openrouter'")
 if [ "$RESEED" = "1" ]; then
   assert "failpath.reseed" "pass" "configs llm_key row re-created"
@@ -693,7 +785,7 @@ else
   halt "cannot run healing half of the loop"
 fi
 
-# 5. POST a new entry and poll to resolved — this proves self-healing for future ingests
+# 5. POST a new entry and poll to processed — this proves self-healing for future ingests
 HEAL_BODY=$(jq -cn --arg v "$VAULT_ID" --arg t "Heal-path ${TS}" \
   '{content:"Recovery test: this entry should ingest successfully now that the key is back.", title:$t, vaultId:$v, type:"thought", source:"api"}')
 HEAL_RESP=$(curl -s -b "$COOKIE_JAR" -H "Content-Type: application/json" \
@@ -705,13 +797,13 @@ HEAL_TIMEOUT=90
 elapsed=0
 while [ $elapsed -lt $HEAL_TIMEOUT ]; do
   HEAL_ING=$(psql_one "SELECT ingest_status FROM raw_sources WHERE lookup_key='${ENTRY_HEAL_ID}'")
-  if [ "$HEAL_ING" = "resolved" ] || [ "$HEAL_ING" = "failed" ]; then break; fi
+  if [ "$HEAL_ING" = "processed" ] || [ "$HEAL_ING" = "resolved" ] || [ "$HEAL_ING" = "failed" ]; then break; fi
   sleep 3
   elapsed=$((elapsed + 3))
 done
 
-if [ "$HEAL_ING" = "resolved" ]; then
-  assert "failpath.heal_resolved" "pass" "post-reseed ingest resolved after ${elapsed}s"
+if [ "$HEAL_ING" = "processed" ] || [ "$HEAL_ING" = "resolved" ]; then
+  assert "failpath.heal_resolved" "pass" "post-reseed ingest=${HEAL_ING} after ${elapsed}s"
 else
   assert "failpath.heal_resolved" "fail" "post-reseed ingest=${HEAL_ING} after ${elapsed}s"
 fi
@@ -789,124 +881,15 @@ fi
 
 ---
 
-## Phase 8 — Report + teardown
+## Phase 8 — Wiki Types Setup
 
-### Step 17 -- Write run report
-
-```bash
-set -e
-source .uat/runs/state
-source .uat/runs/helpers.sh
-
-ASSERTS=$(jq -s '.' .uat/runs/asserts.jsonl)
-OBSERVATIONS=$(jq -s '.' .uat/runs/observations.jsonl)
-PASS=$(echo "$ASSERTS" | jq '[.[] | select(.status=="pass")] | length')
-FAIL=$(echo "$ASSERTS" | jq '[.[] | select(.status=="fail")] | length')
-TOTAL=$(echo "$ASSERTS" | jq 'length')
-SERVER_TAIL=$(tail -100 .uat/runs/server.log 2>/dev/null || echo "")
-
-REPORT_JSON=".uat/runs/${RUN_ID}.json"
-REPORT_MD=".uat/runs/${RUN_ID}.md"
-
-jq -n \
-  --arg run "$RUN_ID" \
-  --arg ms "M3" \
-  --arg shipped "2026-04-12" \
-  --argjson asserts "$ASSERTS" \
-  --argjson obs "$OBSERVATIONS" \
-  --arg vault "$VAULT_ID" \
-  --arg sarah "$ENTRY_SARAH_ID" \
-  --arg edge "$ENTRY_EDGE_ID" \
-  --arg fail "$ENTRY_FAIL_ID" \
-  --arg heal "$ENTRY_HEAL_ID" \
-  --arg wiki "$WIKI_ID" \
-  --arg wikiType "${WIKI_TYPE_ID:-}" \
-  --arg publishedSlug "${PUBLISHED_SLUG:-}" \
-  --arg customTypeSlug "${CUSTOM_TYPE_SLUG:-}" \
-  --arg bootMs "$BOOT_MS" \
-  --arg ingestMs "$INGEST_MS" \
-  --arg tail "$SERVER_TAIL" \
-  '{
-    runId: $run,
-    milestone: $ms,
-    shippedAt: $shipped,
-    asserts: $asserts,
-    observations: $obs,
-    fixtures: {
-      vaultId: $vault,
-      entries: { sarah: $sarah, edge: $edge, failpath: $fail, healpath: $heal },
-      wikiId: $wiki,
-      wikiTypeId: $wikiType,
-      publishedSlug: $publishedSlug,
-      customTypeSlug: $customTypeSlug
-    },
-    timings: { bootMs: ($bootMs|tonumber? // null), ingestMs: ($ingestMs|tonumber? // null) },
-    serverLogTail: $tail
-  }' > "$REPORT_JSON"
-
-{
-  echo "# UAT run ${RUN_ID}"
-  echo
-  echo "- Milestone: M3 (shipped 2026-04-12)"
-  echo "- Boot: ${BOOT_MS}ms"
-  echo "- Ingest (Phase 5): ${INGEST_MS}ms"
-  echo
-  echo "## Asserts: ${PASS}/${TOTAL} pass, ${FAIL} fail"
-  echo
-  echo "| Name | Status | Detail |"
-  echo "|------|--------|--------|"
-  jq -r '.[] | "| \(.name) | \(.status) | \(.detail) |"' <<< "$ASSERTS"
-  echo
-  echo "## Observations"
-  echo
-  echo "| Name | Value | Note |"
-  echo "|------|-------|------|"
-  jq -r '.[] | "| \(.name) | \(.value) | \(.note) |"' <<< "$OBSERVATIONS"
-} > "$REPORT_MD"
-
-echo "[ok] report: ${REPORT_JSON}"
-echo "[ok] report: ${REPORT_MD}"
-save_state FINAL_PASS "$PASS"
-save_state FINAL_FAIL "$FAIL"
-save_state FINAL_TOTAL "$TOTAL"
-```
-
-### Step 18 -- Teardown
+### Step 17 -- Seed default wiki types
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-if [ -n "${SERVER_PID:-}" ]; then
-  kill "$SERVER_PID" 2>/dev/null || true
-  sleep 1
-  # Kill any straggler tsx watch process too
-  pkill -f 'tsx watch.*core/src/index.ts' 2>/dev/null || true
-fi
-[ -f "$COOKIE_JAR" ] && rm -f "$COOKIE_JAR"
-
-if [ "${FINAL_FAIL:-0}" = "0" ] && [ -n "${FINAL_TOTAL:-}" ] && [ "${FINAL_TOTAL}" != "0" ]; then
-  echo "[ok] UAT complete: ${FINAL_PASS}/${FINAL_TOTAL} asserts passed"
-  exit 0
-else
-  echo "[fail] UAT incomplete: ${FINAL_FAIL}/${FINAL_TOTAL} asserts failed — see .uat/runs/${RUN_ID}.md"
-  exit 1
-fi
-```
-
----
-
-## Phase 9 — Wiki Types Setup
-
-### Step 19 -- Seed default wiki types
-
-```bash
-set -e
-source .uat/runs/state
-source .uat/runs/helpers.sh
-
-# POST /wiki-types/setup seeds 10 default types from YAML
 SETUP_CODE=$(curl -s -o /tmp/uat-wt-setup.json -w '%{http_code}' \
   -X POST "${BASE_URL}/wiki-types/setup" \
   -b "$COOKIE_JAR")
@@ -919,7 +902,6 @@ else
   assert "wiki_types.setup" "fail" "expected 200, got ${SETUP_CODE}"
 fi
 
-# Idempotency: calling setup again should not fail
 SETUP2_CODE=$(curl -s -o /tmp/uat-wt-setup2.json -w '%{http_code}' \
   -X POST "${BASE_URL}/wiki-types/setup" \
   -b "$COOKIE_JAR")
@@ -931,7 +913,7 @@ else
 fi
 ```
 
-### Step 20 -- List default wiki types and validate shape
+### Step 18 -- List default wiki types and validate shape
 
 ```bash
 set -e
@@ -955,7 +937,6 @@ else
   assert "wiki_types.count_10" "fail" "expected 10 default types, got ${TYPE_COUNT}"
 fi
 
-# Shape assert: every type has slug, name, shortDescriptor, descriptor, prompt, isDefault=true
 SHAPE_OK=$(jq '[.wikiTypes[] | select(.slug and .name and .shortDescriptor and .descriptor and (.prompt != null) and (.isDefault == true))] | length' /tmp/uat-wt-list.json)
 if [ "$SHAPE_OK" = "$TYPE_COUNT" ]; then
   assert "wiki_types.shape" "pass" "all ${TYPE_COUNT} types have slug/name/shortDescriptor/descriptor/prompt/isDefault=true"
@@ -964,14 +945,13 @@ else
 fi
 ```
 
-### Step 21 -- Regression gate: goal type exists (not objective)
+### Step 19 -- Regression gate: goal type exists (not objective)
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# The objective->goal rename was part of M3. Assert goal exists, objective does not.
 GOAL_EXISTS=$(jq '[.wikiTypes[] | select(.slug == "goal")] | length' /tmp/uat-wt-list.json)
 OBJECTIVE_EXISTS=$(jq '[.wikiTypes[] | select(.slug == "objective")] | length' /tmp/uat-wt-list.json)
 
@@ -987,12 +967,11 @@ else
   assert "wiki_types.objective_gone" "fail" "slug=objective still present — rename incomplete"
 fi
 
-# Save the goal type's slug for reference
 WIKI_TYPE_ID="goal"
 save_state WIKI_TYPE_ID "$WIKI_TYPE_ID"
 ```
 
-### Step 22 -- Create custom wiki type
+### Step 20 -- Create custom wiki type
 
 ```bash
 set -e
@@ -1026,7 +1005,6 @@ else
   assert "wiki_types.create_custom" "fail" "expected 201, got ${CREATE_CODE}"
 fi
 
-# Verify total count is now 11
 LIST2_CODE=$(curl -s -o /tmp/uat-wt-list2.json -w '%{http_code}' \
   -b "$COOKIE_JAR" "${BASE_URL}/wiki-types")
 TYPE_COUNT_2=$(jq '.wikiTypes | length' /tmp/uat-wt-list2.json)
@@ -1036,7 +1014,6 @@ else
   assert "wiki_types.count_after_create" "fail" "expected 11 types, got ${TYPE_COUNT_2}"
 fi
 
-# Error path: duplicate slug should 409
 DUP_CODE=$(curl -s -o /tmp/uat-wt-dup.json -w '%{http_code}' \
   -X POST "${BASE_URL}/wiki-types" \
   -H "Content-Type: application/json" \
@@ -1050,7 +1027,7 @@ else
 fi
 ```
 
-### Step 23 -- Update custom wiki type
+### Step 21 -- Update custom wiki type
 
 ```bash
 set -e
@@ -1078,7 +1055,6 @@ else
   assert "wiki_types.update" "fail" "expected 200, got ${UPDATE_CODE}"
 fi
 
-# Error path: update nonexistent slug -> 404
 NOTFOUND_CODE=$(curl -s -o /tmp/uat-wt-nf.json -w '%{http_code}' \
   -X PUT "${BASE_URL}/wiki-types/does-not-exist-xyz" \
   -H "Content-Type: application/json" \
@@ -1094,16 +1070,16 @@ fi
 
 ---
 
-## Phase 10 — Content Storage
+## Phase 9 — Content Storage
 
-### Step 24 -- Write content to wiki via content API
+### Step 22 -- Write content to wiki via content API
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-WIKI_CONTENT_BODY="# UAT Content Test\n\nThis content was written during UAT Phase 10 at timestamp ${TS}.\n\n## Section\n\nSome detailed notes here."
+WIKI_CONTENT_BODY="# UAT Content Test\n\nThis content was written during UAT Phase 9 at timestamp ${TS}.\n\n## Section\n\nSome detailed notes here."
 
 WRITE_BODY=$(jq -cn --arg b "$WIKI_CONTENT_BODY" \
   '{frontmatter:{name:"UAT regen test",type:"log"},body:$b}')
@@ -1126,7 +1102,6 @@ else
   assert "content.write_wiki" "fail" "expected 200, got ${WRITE_CODE}"
 fi
 
-# Error path: invalid content type -> 400
 BAD_TYPE_CODE=$(curl -s -o /tmp/uat-content-badtype.json -w '%{http_code}' \
   -X PUT "${BASE_URL}/api/content/bogus/${WIKI_ID}" \
   -H "Content-Type: application/json" \
@@ -1140,7 +1115,7 @@ else
 fi
 ```
 
-### Step 25 -- Read content back and verify
+### Step 23 -- Read content back and verify
 
 ```bash
 set -e
@@ -1157,7 +1132,6 @@ else
   assert "content.read_wiki" "fail" "expected 200, got ${READ_CODE}"
 fi
 
-# Content must not be empty — we just wrote to it
 READ_CONTENT=$(jq -r '.content // empty' /tmp/uat-content-read.json)
 if [ -n "$READ_CONTENT" ]; then
   assert "content.read_not_empty" "pass" "content is non-empty (${#READ_CONTENT} chars)"
@@ -1165,14 +1139,12 @@ else
   assert "content.read_not_empty" "fail" "content is empty after write"
 fi
 
-# Verify the content contains our UAT marker
 if echo "$READ_CONTENT" | grep -q "UAT Content Test"; then
   assert "content.read_matches_written" "pass" "content contains expected UAT marker"
 else
   assert "content.read_matches_written" "fail" "content does not contain expected UAT marker"
 fi
 
-# Error path: read nonexistent key -> 404
 NF_CODE=$(curl -s -o /tmp/uat-content-nf.json -w '%{http_code}' \
   -b "$COOKIE_JAR" "${BASE_URL}/api/content/wiki/does_not_exist_xyz")
 
@@ -1183,14 +1155,13 @@ else
 fi
 ```
 
-### Step 26 -- Verify edit audit trail
+### Step 24 -- Verify edit audit trail
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# The content write in Step 24 should have logged an edit with source='user'
 EDIT_COUNT=$(psql_one "SELECT count(*) FROM edits WHERE object_type='wiki' AND object_id='${WIKI_ID}' AND source='user'")
 
 if [ -n "$EDIT_COUNT" ] && [ "$EDIT_COUNT" -ge 1 ] 2>/dev/null; then
@@ -1199,7 +1170,6 @@ else
   assert "content.edit_audit_user" "fail" "expected >=1 edit rows with source=user, got '${EDIT_COUNT}'"
 fi
 
-# Verify edit row shape: object_type, object_id, source, content columns are populated
 EDIT_SHAPE=$(psql_one "SELECT count(*) FROM edits WHERE object_type='wiki' AND object_id='${WIKI_ID}' AND source='user' AND content IS NOT NULL")
 if [ "$EDIT_SHAPE" = "$EDIT_COUNT" ]; then
   assert "content.edit_shape" "pass" "all edit rows have content populated"
@@ -1210,16 +1180,15 @@ fi
 
 ---
 
-## Phase 11 — Wiki Publishing
+## Phase 10 — Wiki Publishing
 
-### Step 27 -- Publish wiki with content
+### Step 25 -- Publish wiki with content
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# The wiki already has content from Phase 10
 PUB_CODE=$(curl -s -o /tmp/uat-publish.json -w '%{http_code}' \
   -X POST "${BASE_URL}/wikis/${WIKI_ID}/publish" \
   -b "$COOKIE_JAR")
@@ -1235,7 +1204,6 @@ if [ "$PUB_CODE" = "200" ]; then
     assert "publish.wiki" "fail" "200 but missing fields: published=${PUB_FLAG}, slug=${PUB_SLUG}, publishedAt=${PUB_AT}"
   fi
 
-  # nanoid24 slug should be 24 characters
   SLUG_LEN=${#PUB_SLUG}
   if [ "$SLUG_LEN" = "24" ]; then
     assert "publish.slug_length" "pass" "publishedSlug is 24 chars"
@@ -1250,14 +1218,13 @@ else
 fi
 ```
 
-### Step 28 -- Public wiki JSON access (unauthenticated)
+### Step 26 -- Public wiki JSON access (unauthenticated)
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# GET /published/wiki/:nanoid WITHOUT cookie jar — proves unauthenticated access
 PUB_READ_CODE=$(curl -s -o /tmp/uat-pub-read.json -w '%{http_code}' \
   "${BASE_URL}/published/wiki/${PUBLISHED_SLUG}")
 
@@ -1268,7 +1235,6 @@ else
   assert "publish.public_read" "fail" "expected 200, got ${PUB_READ_CODE}"
 fi
 
-# Shape assert: response has name, type, publishedAt, content
 PUB_NAME=$(jq -r '.name // empty' /tmp/uat-pub-read.json)
 PUB_TYPE=$(jq -r '.type // empty' /tmp/uat-pub-read.json)
 PUB_AT=$(jq -r '.publishedAt // empty' /tmp/uat-pub-read.json)
@@ -1281,14 +1247,13 @@ else
 fi
 ```
 
-### Step 29 -- Public wiki raw markdown access
+### Step 27 -- Public wiki raw markdown access
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# GET /published/wiki/:nanoid?raw should return text/plain
 RAW_CODE=$(curl -s -o /tmp/uat-pub-raw.txt -w '%{http_code}' \
   -D /tmp/uat-pub-raw-headers.txt \
   "${BASE_URL}/published/wiki/${PUBLISHED_SLUG}?raw")
@@ -1299,7 +1264,6 @@ else
   assert "publish.raw_read" "fail" "expected 200, got ${RAW_CODE}"
 fi
 
-# Content-Type must be text/plain
 CT=$(grep -i 'content-type' /tmp/uat-pub-raw-headers.txt 2>/dev/null | tr -d '\r')
 if echo "$CT" | grep -qi 'text/plain'; then
   assert "publish.raw_content_type" "pass" "Content-Type is text/plain"
@@ -1307,7 +1271,6 @@ else
   assert "publish.raw_content_type" "fail" "expected text/plain, got '${CT}'"
 fi
 
-# Body should contain the wiki content marker
 RAW_BODY=$(cat /tmp/uat-pub-raw.txt)
 if echo "$RAW_BODY" | grep -q "UAT Content Test"; then
   assert "publish.raw_body_matches" "pass" "raw body contains expected content"
@@ -1316,7 +1279,7 @@ else
 fi
 ```
 
-### Step 30 -- Unpublish wiki
+### Step 28 -- Unpublish wiki
 
 ```bash
 set -e
@@ -1337,7 +1300,6 @@ if [ "$UNPUB_CODE" = "200" ]; then
     assert "publish.unpublish" "fail" "200 but published=${UNPUB_FLAG} (expected false)"
   fi
 
-  # Slug must be preserved for re-publish
   if [ "$UNPUB_SLUG" = "$PUBLISHED_SLUG" ]; then
     assert "publish.slug_preserved_on_unpublish" "pass" "publishedSlug preserved: ${UNPUB_SLUG}"
   else
@@ -1349,14 +1311,13 @@ else
 fi
 ```
 
-### Step 31 -- Public access after unpublish returns 404
+### Step 29 -- Public access after unpublish returns 404
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# After unpublish, the public route must return 404
 GONE_CODE=$(curl -s -o /tmp/uat-pub-gone.json -w '%{http_code}' \
   "${BASE_URL}/published/wiki/${PUBLISHED_SLUG}")
 
@@ -1368,7 +1329,7 @@ else
 fi
 ```
 
-### Step 32 -- Re-publish preserves slug
+### Step 30 -- Re-publish preserves slug
 
 ```bash
 set -e
@@ -1389,7 +1350,6 @@ if [ "$REPUB_CODE" = "200" ]; then
     assert "publish.republish" "fail" "200 but published=${REPUB_FLAG}"
   fi
 
-  # Slug stability: must match original slug
   if [ "$REPUB_SLUG" = "$PUBLISHED_SLUG" ]; then
     assert "publish.slug_stable_across_cycles" "pass" "slug stable: ${REPUB_SLUG} == ${PUBLISHED_SLUG}"
   else
@@ -1401,14 +1361,13 @@ else
 fi
 ```
 
-### Step 33 -- Publish wiki with no content returns 400
+### Step 31 -- Publish wiki with no content returns 400
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# Create a fresh wiki with no content
 EMPTY_WIKI_RESP=$(curl -s -o /tmp/uat-empty-wiki.json -w '%{http_code}' \
   -X POST "${BASE_URL}/vaults/${VAULT_ID}/wikis" \
   -H "Content-Type: application/json" \
@@ -1423,7 +1382,6 @@ else
   assert "publish.empty_wiki_created" "fail" "expected 200/201, got ${EMPTY_WIKI_RESP}"
 fi
 
-# Attempt to publish wiki with no content -> should 400
 NOPUB_CODE=$(curl -s -o /tmp/uat-nopub.json -w '%{http_code}' \
   -X POST "${BASE_URL}/wikis/${EMPTY_WIKI_ID}/publish" \
   -b "$COOKIE_JAR")
@@ -1439,16 +1397,15 @@ fi
 
 ---
 
-## Phase 12 — Wiki Regeneration
+## Phase 11 — Wiki Regeneration
 
-### Step 34 -- Trigger on-demand wiki regeneration
+### Step 32 -- Trigger on-demand wiki regeneration
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# Use the main WIKI_ID which has content from Phase 10
 REGEN_CODE=$(curl -s -o /tmp/uat-regen2.json -w '%{http_code}' \
   -X POST "${BASE_URL}/wikis/${WIKI_ID}/regenerate" \
   -b "$COOKIE_JAR")
@@ -1469,18 +1426,16 @@ else
   observe "regen.body" "$REGEN_BODY" ""
 fi
 
-# We observe but do not assert the response code — LLM availability is external
 observe "regen.full_response" "$REGEN_BODY" "LLM output is probabilistic"
 ```
 
-### Step 35 -- Verify regen wrote content
+### Step 33 -- Verify regen wrote content
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# After regen, content should be non-empty — observe only
 POST_REGEN_CODE=$(curl -s -o /tmp/uat-regen-content.json -w '%{http_code}' \
   -b "$COOKIE_JAR" "${BASE_URL}/api/content/wiki/${WIKI_ID}")
 
@@ -1496,20 +1451,18 @@ else
 fi
 ```
 
-### Step 36 -- Verify regen edit audit trail
+### Step 34 -- Verify regen edit audit trail
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# Check for edit row with source='regen' — this is deterministic if regen returned 200
 REGEN_EDIT_COUNT=$(psql_one "SELECT count(*) FROM edits WHERE object_type='wiki' AND object_id='${WIKI_ID}' AND source='regen'")
 
 if [ -n "$REGEN_EDIT_COUNT" ] && [ "$REGEN_EDIT_COUNT" -ge 1 ] 2>/dev/null; then
   assert "regen.edit_audit_regen" "pass" "edits table has ${REGEN_EDIT_COUNT} row(s) with source=regen for wiki ${WIKI_ID}"
 else
-  # If regen returned 500 (key issue), there would be no edit row — check Phase 7 result
   PHASE7_REGEN=$(jq -r 'select(.name=="wiki.regen_live") | .status' .uat/runs/asserts.jsonl 2>/dev/null | tail -1)
   if [ "$PHASE7_REGEN" = "pass" ]; then
     assert "regen.edit_audit_regen" "fail" "regen succeeded in Phase 7 but no edit row with source=regen found"
@@ -1519,17 +1472,15 @@ else
 fi
 ```
 
-### Step 37 -- Regen disabled returns 400
+### Step 35 -- Regen disabled returns 400
 
 ```bash
 set -e
 source .uat/runs/state
 source .uat/runs/helpers.sh
 
-# Set regenerate=false on the wiki directly in the DB
 psql "$DATABASE_URL" -c "UPDATE wikis SET regenerate = false WHERE lookup_key = '${WIKI_ID}'" >/dev/null
 
-# Attempt regen — should return 400
 DISABLED_CODE=$(curl -s -o /tmp/uat-regen-disabled.json -w '%{http_code}' \
   -X POST "${BASE_URL}/wikis/${WIKI_ID}/regenerate" \
   -b "$COOKIE_JAR")
@@ -1542,6 +1493,606 @@ else
   assert "regen.disabled_400" "fail" "expected 400, got ${DISABLED_CODE}"
 fi
 
-# Restore regenerate=true so it doesn't affect other tests
 psql "$DATABASE_URL" -c "UPDATE wikis SET regenerate = true WHERE lookup_key = '${WIKI_ID}'" >/dev/null
+```
+
+---
+
+## Phase 12 — M6 API Routes
+
+### Step 36 -- Cross-vault wiki listing (GET /wikis)
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+LIST_CODE=$(curl -s -o /tmp/uat-wikis-list.json -w '%{http_code}' \
+  -b "$COOKIE_JAR" "${BASE_URL}/wikis")
+
+if [ "$LIST_CODE" = "200" ]; then
+  assert "m6.wikis_list" "pass" "GET /wikis -> 200"
+else
+  cat /tmp/uat-wikis-list.json
+  assert "m6.wikis_list" "fail" "expected 200, got ${LIST_CODE}"
+fi
+
+WIKI_FOUND=$(jq --arg id "$WIKI_ID" '[.wikis[] | select(.id==$id)] | length' /tmp/uat-wikis-list.json)
+if [ "$WIKI_FOUND" = "1" ]; then
+  assert "m6.wikis_list_contains_fixture" "pass" "GET /wikis contains ${WIKI_ID}"
+else
+  assert "m6.wikis_list_contains_fixture" "fail" "GET /wikis does not contain ${WIKI_ID}"
+fi
+
+LIMIT_CODE=$(curl -s -o /tmp/uat-wikis-limit.json -w '%{http_code}' \
+  -b "$COOKIE_JAR" "${BASE_URL}/wikis?limit=1")
+LIMIT_COUNT=$(jq '.wikis | length' /tmp/uat-wikis-limit.json)
+if [ "$LIMIT_CODE" = "200" ] && [ "$LIMIT_COUNT" -le 1 ]; then
+  assert "m6.wikis_list_pagination" "pass" "GET /wikis?limit=1 -> ${LIMIT_COUNT} results"
+else
+  assert "m6.wikis_list_pagination" "fail" "expected <=1 results, got ${LIMIT_COUNT}"
+fi
+```
+
+### Step 37 -- Enriched wiki detail (GET /wikis/:id)
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+DETAIL_CODE=$(curl -s -o /tmp/uat-wiki-detail.json -w '%{http_code}' \
+  -b "$COOKIE_JAR" "${BASE_URL}/wikis/${WIKI_ID}")
+
+if [ "$DETAIL_CODE" = "200" ]; then
+  assert "m6.wiki_detail" "pass" "GET /wikis/:id -> 200"
+else
+  cat /tmp/uat-wiki-detail.json
+  assert "m6.wiki_detail" "fail" "expected 200, got ${DETAIL_CODE}"
+fi
+
+HAS_ID=$(jq -r '.id // empty' /tmp/uat-wiki-detail.json)
+HAS_NAME=$(jq -r '.name // empty' /tmp/uat-wiki-detail.json)
+HAS_TYPE=$(jq -r '.type // empty' /tmp/uat-wiki-detail.json)
+HAS_FRAGS=$(jq '.fragments | type' /tmp/uat-wiki-detail.json)
+HAS_PEOPLE=$(jq '.people | type' /tmp/uat-wiki-detail.json)
+
+if [ -n "$HAS_ID" ] && [ -n "$HAS_NAME" ] && [ -n "$HAS_TYPE" ] && [ "$HAS_FRAGS" = '"array"' ] && [ "$HAS_PEOPLE" = '"array"' ]; then
+  assert "m6.wiki_detail_shape" "pass" "response has id/name/type/fragments[]/people[]"
+else
+  assert "m6.wiki_detail_shape" "fail" "missing fields: id=${HAS_ID}, name=${HAS_NAME}, frags=${HAS_FRAGS}, people=${HAS_PEOPLE}"
+fi
+
+NF_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+  -b "$COOKIE_JAR" "${BASE_URL}/wikis/does_not_exist_xyz")
+if [ "$NF_CODE" = "404" ]; then
+  assert "m6.wiki_detail_404" "pass" "GET /wikis/nonexistent -> 404"
+else
+  assert "m6.wiki_detail_404" "fail" "expected 404, got ${NF_CODE}"
+fi
+```
+
+### Step 38 -- PATCH /wikis/:id/regenerate toggle
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+TOGGLE_OFF_CODE=$(curl -s -o /tmp/uat-regen-toggle-off.json -w '%{http_code}' \
+  -X PATCH "${BASE_URL}/wikis/${WIKI_ID}/regenerate" \
+  -H "Content-Type: application/json" \
+  -b "$COOKIE_JAR" \
+  -d '{"regenerate":false}')
+
+if [ "$TOGGLE_OFF_CODE" = "200" ]; then
+  REGEN_VAL=$(jq -r '.regenerate' /tmp/uat-regen-toggle-off.json)
+  if [ "$REGEN_VAL" = "false" ]; then
+    assert "m6.regen_toggle_off" "pass" "PATCH /wikis/:id/regenerate -> 200, regenerate=false"
+  else
+    assert "m6.regen_toggle_off" "fail" "200 but regenerate=${REGEN_VAL} (expected false)"
+  fi
+else
+  cat /tmp/uat-regen-toggle-off.json
+  assert "m6.regen_toggle_off" "fail" "expected 200, got ${TOGGLE_OFF_CODE}"
+fi
+
+TOGGLE_ON_CODE=$(curl -s -o /tmp/uat-regen-toggle-on.json -w '%{http_code}' \
+  -X PATCH "${BASE_URL}/wikis/${WIKI_ID}/regenerate" \
+  -H "Content-Type: application/json" \
+  -b "$COOKIE_JAR" \
+  -d '{"regenerate":true}')
+
+if [ "$TOGGLE_ON_CODE" = "200" ]; then
+  REGEN_VAL2=$(jq -r '.regenerate' /tmp/uat-regen-toggle-on.json)
+  if [ "$REGEN_VAL2" = "true" ]; then
+    assert "m6.regen_toggle_on" "pass" "PATCH /wikis/:id/regenerate -> 200, regenerate=true"
+  else
+    assert "m6.regen_toggle_on" "fail" "200 but regenerate=${REGEN_VAL2} (expected true)"
+  fi
+else
+  assert "m6.regen_toggle_on" "fail" "expected 200, got ${TOGGLE_ON_CODE}"
+fi
+```
+
+### Step 39 -- PATCH /wikis/:id/bouncer toggle
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+BOUNCER_CODE=$(curl -s -o /tmp/uat-bouncer.json -w '%{http_code}' \
+  -X PATCH "${BASE_URL}/wikis/${WIKI_ID}/bouncer" \
+  -H "Content-Type: application/json" \
+  -b "$COOKIE_JAR" \
+  -d '{"mode":"review"}')
+
+if [ "$BOUNCER_CODE" = "200" ]; then
+  BM=$(jq -r '.bouncerMode' /tmp/uat-bouncer.json)
+  if [ "$BM" = "review" ]; then
+    assert "m6.bouncer_review" "pass" "PATCH /wikis/:id/bouncer -> 200, bouncerMode=review"
+  else
+    assert "m6.bouncer_review" "fail" "200 but bouncerMode=${BM} (expected review)"
+  fi
+else
+  cat /tmp/uat-bouncer.json
+  assert "m6.bouncer_review" "fail" "expected 200, got ${BOUNCER_CODE}"
+fi
+
+AUTO_CODE=$(curl -s -o /tmp/uat-bouncer-auto.json -w '%{http_code}' \
+  -X PATCH "${BASE_URL}/wikis/${WIKI_ID}/bouncer" \
+  -H "Content-Type: application/json" \
+  -b "$COOKIE_JAR" \
+  -d '{"mode":"auto"}')
+
+if [ "$AUTO_CODE" = "200" ]; then
+  BM2=$(jq -r '.bouncerMode' /tmp/uat-bouncer-auto.json)
+  if [ "$BM2" = "auto" ]; then
+    assert "m6.bouncer_auto" "pass" "PATCH /wikis/:id/bouncer -> 200, bouncerMode=auto"
+  else
+    assert "m6.bouncer_auto" "fail" "200 but bouncerMode=${BM2} (expected auto)"
+  fi
+else
+  assert "m6.bouncer_auto" "fail" "expected 200, got ${AUTO_CODE}"
+fi
+```
+
+### Step 40 -- Fragment accept/reject error paths
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+ACCEPT_NF_CODE=$(curl -s -o /tmp/uat-frag-accept-nf.json -w '%{http_code}' \
+  -X POST "${BASE_URL}/fragments/frag_does_not_exist/accept" \
+  -H "Content-Type: application/json" \
+  -b "$COOKIE_JAR" \
+  -d "{\"wikiId\":\"${WIKI_ID}\"}")
+
+if [ "$ACCEPT_NF_CODE" = "404" ]; then
+  assert "m6.fragment_accept_404" "pass" "POST /fragments/nonexistent/accept -> 404"
+else
+  assert "m6.fragment_accept_404" "fail" "expected 404, got ${ACCEPT_NF_CODE}"
+fi
+
+REJECT_NF_CODE=$(curl -s -o /tmp/uat-frag-reject-nf.json -w '%{http_code}' \
+  -X POST "${BASE_URL}/fragments/frag_does_not_exist/reject" \
+  -H "Content-Type: application/json" \
+  -b "$COOKIE_JAR" \
+  -d "{\"wikiId\":\"${WIKI_ID}\"}")
+
+if [ "$REJECT_NF_CODE" = "404" ]; then
+  assert "m6.fragment_reject_404" "pass" "POST /fragments/nonexistent/reject -> 404"
+else
+  assert "m6.fragment_reject_404" "fail" "expected 404, got ${REJECT_NF_CODE}"
+fi
+
+FRAG_RESP=$(curl -s -b "$COOKIE_JAR" "${BASE_URL}/entries/${ENTRY_SARAH_ID}/fragments")
+FIRST_FRAG_ID=$(echo "$FRAG_RESP" | jq -r '.fragments[0].id // empty')
+
+if [ -n "$FIRST_FRAG_ID" ]; then
+  NOT_REVIEW_CODE=$(curl -s -o /tmp/uat-frag-not-review.json -w '%{http_code}' \
+    -X POST "${BASE_URL}/fragments/${FIRST_FRAG_ID}/accept" \
+    -H "Content-Type: application/json" \
+    -b "$COOKIE_JAR" \
+    -d "{\"wikiId\":\"${WIKI_ID}\"}")
+
+  if [ "$NOT_REVIEW_CODE" = "400" ] || [ "$NOT_REVIEW_CODE" = "404" ]; then
+    assert "m6.fragment_accept_not_review" "pass" "accept on auto-mode wiki -> ${NOT_REVIEW_CODE}"
+  else
+    assert "m6.fragment_accept_not_review" "fail" "expected 400 or 404, got ${NOT_REVIEW_CODE}"
+  fi
+else
+  observe "m6.fragment_accept_skip" "no fragments" "sarah entry produced 0 fragments, skipping accept/reject flow test"
+fi
+```
+
+### Step 41 -- PUT /people/:id update
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+PERSON_ID=$(psql_one "SELECT lookup_key FROM people LIMIT 1")
+
+if [ -n "$PERSON_ID" ]; then
+  UPDATE_CODE=$(curl -s -o /tmp/uat-person-update.json -w '%{http_code}' \
+    -X PUT "${BASE_URL}/people/${PERSON_ID}" \
+    -H "Content-Type: application/json" \
+    -b "$COOKIE_JAR" \
+    -d '{"name":"UAT Updated Person","relationship":"colleague"}')
+
+  if [ "$UPDATE_CODE" = "200" ]; then
+    UPDATED_NAME=$(jq -r '.name // empty' /tmp/uat-person-update.json)
+    if [ "$UPDATED_NAME" = "UAT Updated Person" ]; then
+      assert "m6.people_update" "pass" "PUT /people/:id -> 200, name=UAT Updated Person"
+    else
+      assert "m6.people_update" "fail" "200 but name=${UPDATED_NAME}"
+    fi
+  else
+    cat /tmp/uat-person-update.json
+    assert "m6.people_update" "fail" "expected 200, got ${UPDATE_CODE}"
+  fi
+else
+  observe "m6.people_update_skip" "no people" "ingest did not create any people, skipping update test"
+fi
+
+NF_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+  -X PUT "${BASE_URL}/people/person_does_not_exist" \
+  -H "Content-Type: application/json" \
+  -b "$COOKIE_JAR" \
+  -d '{"name":"nope"}')
+if [ "$NF_CODE" = "404" ]; then
+  assert "m6.people_update_404" "pass" "PUT /people/nonexistent -> 404"
+else
+  assert "m6.people_update_404" "fail" "expected 404, got ${NF_CODE}"
+fi
+```
+
+---
+
+## Phase 13 — M9 Audit Log
+
+### Step 42 -- GET /audit-log basic + filters
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+AL_CODE=$(curl -s -o /tmp/uat-audit-log.json -w '%{http_code}' \
+  -b "$COOKIE_JAR" "${BASE_URL}/audit-log")
+
+if [ "$AL_CODE" = "200" ]; then
+  assert "m9.audit_log_list" "pass" "GET /audit-log -> 200"
+else
+  cat /tmp/uat-audit-log.json
+  assert "m9.audit_log_list" "fail" "expected 200, got ${AL_CODE}"
+fi
+
+HAS_EVENTS=$(jq '.events | type' /tmp/uat-audit-log.json)
+HAS_TOTAL=$(jq '.total // -1' /tmp/uat-audit-log.json)
+if [ "$HAS_EVENTS" = '"array"' ] && [ "$HAS_TOTAL" -ge 0 ] 2>/dev/null; then
+  assert "m9.audit_log_shape" "pass" "response has events[]/total (total=${HAS_TOTAL})"
+else
+  assert "m9.audit_log_shape" "fail" "missing fields: events=${HAS_EVENTS}, total=${HAS_TOTAL}"
+fi
+
+WIKI_AL_CODE=$(curl -s -o /tmp/uat-audit-log-wiki.json -w '%{http_code}' \
+  -b "$COOKIE_JAR" "${BASE_URL}/audit-log?entityType=wiki")
+
+if [ "$WIKI_AL_CODE" = "200" ]; then
+  WIKI_EVENTS=$(jq '.events | length' /tmp/uat-audit-log-wiki.json)
+  assert "m9.audit_log_filter_type" "pass" "GET /audit-log?entityType=wiki -> 200, ${WIKI_EVENTS} events"
+else
+  assert "m9.audit_log_filter_type" "fail" "expected 200, got ${WIKI_AL_CODE}"
+fi
+
+ENTITY_AL_CODE=$(curl -s -o /tmp/uat-audit-log-entity.json -w '%{http_code}' \
+  -b "$COOKIE_JAR" "${BASE_URL}/audit-log?entityId=${WIKI_ID}")
+
+if [ "$ENTITY_AL_CODE" = "200" ]; then
+  ENTITY_EVENTS=$(jq '.events | length' /tmp/uat-audit-log-entity.json)
+  assert "m9.audit_log_filter_entity" "pass" "GET /audit-log?entityId=wiki -> 200, ${ENTITY_EVENTS} events"
+else
+  assert "m9.audit_log_filter_entity" "fail" "expected 200, got ${ENTITY_AL_CODE}"
+fi
+
+PUBLISH_EVENTS=$(jq '[.events[] | select(.eventType=="published")] | length' /tmp/uat-audit-log-entity.json)
+if [ "$PUBLISH_EVENTS" -ge 1 ] 2>/dev/null; then
+  assert "m9.audit_log_publish_event" "pass" "audit_log has ${PUBLISH_EVENTS} published event(s) for wiki ${WIKI_ID}"
+else
+  assert "m9.audit_log_publish_event" "fail" "expected >=1 published events, got ${PUBLISH_EVENTS}"
+fi
+```
+
+### Step 43 -- GET /wikis/:id/timeline
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+TL_CODE=$(curl -s -o /tmp/uat-timeline.json -w '%{http_code}' \
+  -b "$COOKIE_JAR" "${BASE_URL}/wikis/${WIKI_ID}/timeline")
+
+if [ "$TL_CODE" = "200" ]; then
+  assert "m9.timeline" "pass" "GET /wikis/:id/timeline -> 200"
+else
+  cat /tmp/uat-timeline.json
+  assert "m9.timeline" "fail" "expected 200, got ${TL_CODE}"
+fi
+
+TL_EVENTS=$(jq '.events | type' /tmp/uat-timeline.json)
+TL_COUNT=$(jq '.events | length' /tmp/uat-timeline.json)
+if [ "$TL_EVENTS" = '"array"' ]; then
+  assert "m9.timeline_shape" "pass" "timeline has events[] (${TL_COUNT} events)"
+else
+  assert "m9.timeline_shape" "fail" "events is ${TL_EVENTS}, expected array"
+fi
+
+if [ "$TL_COUNT" -gt 0 ] 2>/dev/null; then
+  VALID=$(jq '[.events[] | select(.entityType and .entityId and .eventType and .summary and .createdAt)] | length' /tmp/uat-timeline.json)
+  if [ "$VALID" = "$TL_COUNT" ]; then
+    assert "m9.timeline_event_shape" "pass" "all ${TL_COUNT} timeline events have required fields"
+  else
+    assert "m9.timeline_event_shape" "fail" "${VALID}/${TL_COUNT} events have required fields"
+  fi
+else
+  observe "m9.timeline_empty" "0 events" "no audit events for this wiki — may be expected on fresh DB"
+fi
+
+TL_NF_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+  -b "$COOKIE_JAR" "${BASE_URL}/wikis/does_not_exist_xyz/timeline")
+if [ "$TL_NF_CODE" = "404" ]; then
+  assert "m9.timeline_404" "pass" "GET /wikis/nonexistent/timeline -> 404"
+else
+  assert "m9.timeline_404" "fail" "expected 404, got ${TL_NF_CODE}"
+fi
+
+AL_ROW_COUNT=$(psql_one "SELECT count(*) FROM audit_log")
+observe "m9.audit_log_total_rows" "$AL_ROW_COUNT" "total rows in audit_log table"
+```
+
+---
+
+## Phase 14 — M10 Trust Gates
+
+### Step 44 -- POST /wikis/:id/spawn (child wiki creation)
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+SPAWN_CODE=$(curl -s -o /tmp/uat-spawn.json -w '%{http_code}' \
+  -X POST "${BASE_URL}/wikis/${WIKI_ID}/spawn" \
+  -H "Content-Type: application/json" \
+  -b "$COOKIE_JAR" \
+  -d '{"name":"UAT Spawned Child Wiki"}')
+
+if [ "$SPAWN_CODE" = "200" ] || [ "$SPAWN_CODE" = "201" ]; then
+  SPAWN_KEY=$(jq -r '.lookupKey // empty' /tmp/uat-spawn.json)
+  SPAWN_NAME=$(jq -r '.name // empty' /tmp/uat-spawn.json)
+  SPAWN_PARENT=$(jq -r '.parentKey // empty' /tmp/uat-spawn.json)
+  SPAWN_SLUG=$(jq -r '.slug // empty' /tmp/uat-spawn.json)
+
+  save_state SPAWN_WIKI_ID "$SPAWN_KEY"
+  assert "m10.spawn" "pass" "POST /wikis/:id/spawn -> ${SPAWN_CODE}, key=${SPAWN_KEY}"
+
+  if [ -n "$SPAWN_KEY" ] && [ -n "$SPAWN_NAME" ] && [ "$SPAWN_PARENT" = "$WIKI_ID" ] && [ -n "$SPAWN_SLUG" ]; then
+    assert "m10.spawn_shape" "pass" "response has lookupKey/slug/name/parentKey=${SPAWN_PARENT}"
+  else
+    assert "m10.spawn_shape" "fail" "missing fields: key=${SPAWN_KEY}, name=${SPAWN_NAME}, parent=${SPAWN_PARENT}"
+  fi
+
+  EDGE_EXISTS=$(psql_one "SELECT count(*) FROM edges WHERE src_id='${WIKI_ID}' AND dst_id='${SPAWN_KEY}' AND edge_type='WIKI_RELATED_TO_WIKI'")
+  if [ "$EDGE_EXISTS" = "1" ]; then
+    assert "m10.spawn_edge" "pass" "WIKI_RELATED_TO_WIKI edge from parent to child"
+  else
+    assert "m10.spawn_edge" "fail" "expected 1 edge, got ${EDGE_EXISTS}"
+  fi
+else
+  cat /tmp/uat-spawn.json
+  assert "m10.spawn" "fail" "expected 200/201, got ${SPAWN_CODE}"
+fi
+
+SPAWN_NF_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+  -X POST "${BASE_URL}/wikis/does_not_exist_xyz/spawn" \
+  -H "Content-Type: application/json" \
+  -b "$COOKIE_JAR" \
+  -d '{"name":"Orphan Wiki"}')
+if [ "$SPAWN_NF_CODE" = "404" ]; then
+  assert "m10.spawn_404" "pass" "POST /wikis/nonexistent/spawn -> 404"
+else
+  assert "m10.spawn_404" "fail" "expected 404, got ${SPAWN_NF_CODE}"
+fi
+```
+
+### Step 45 -- Fragment confidence column populated after ingest
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+CONF_COUNT=$(psql_one "SELECT count(*) FROM fragments WHERE entry_id='${ENTRY_SARAH_ID}' AND confidence IS NOT NULL")
+TOTAL_FRAGS=$(psql_one "SELECT count(*) FROM fragments WHERE entry_id='${ENTRY_SARAH_ID}'")
+
+if [ -n "$TOTAL_FRAGS" ] && [ "$TOTAL_FRAGS" -gt 0 ] 2>/dev/null; then
+  observe "m10.fragment_confidence_populated" "${CONF_COUNT}/${TOTAL_FRAGS}" "fragments with confidence set after ingest"
+else
+  observe "m10.fragment_confidence_populated" "0/0" "no fragments from sarah entry"
+fi
+
+HEAL_CONF=$(psql_one "SELECT count(*) FROM fragments WHERE entry_id='${ENTRY_HEAL_ID}' AND confidence IS NOT NULL")
+HEAL_FRAGS=$(psql_one "SELECT count(*) FROM fragments WHERE entry_id='${ENTRY_HEAL_ID}'")
+observe "m10.heal_fragment_confidence" "${HEAL_CONF}/${HEAL_FRAGS}" "heal-path fragments with confidence"
+```
+
+### Step 46 -- Source metadata on entries
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+ENTRY_RESP=$(curl -s -b "$COOKIE_JAR" "${BASE_URL}/entries/${ENTRY_SARAH_ID}")
+HAS_SOURCE=$(echo "$ENTRY_RESP" | jq -r '.source // empty')
+
+if [ "$HAS_SOURCE" = "api" ]; then
+  assert "m10.entry_source" "pass" "entry has source=api"
+else
+  assert "m10.entry_source" "fail" "expected source=api, got ${HAS_SOURCE}"
+fi
+
+SM=$(echo "$ENTRY_RESP" | jq '.sourceMetadata // null')
+observe "m10.source_metadata" "$SM" "null is expected for api-sourced entries"
+```
+
+### Step 47 -- Person summary data (brief_person proxy check)
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+# brief_person is an MCP tool that can't be tested via HTTP.
+# Instead, verify the person detail endpoint returns content (summary data).
+PERSON_ID=$(psql_one "SELECT lookup_key FROM people LIMIT 1")
+
+if [ -n "$PERSON_ID" ]; then
+  PERSON_RESP=$(curl -s -o /tmp/uat-person-detail.json -w '%{http_code}' \
+    -b "$COOKIE_JAR" "${BASE_URL}/people/${PERSON_ID}")
+
+  if [ "$PERSON_RESP" = "200" ]; then
+    assert "m10.person_detail" "pass" "GET /people/:id -> 200"
+    P_ID=$(jq -r '.id // empty' /tmp/uat-person-detail.json)
+    P_NAME=$(jq -r '.name // empty' /tmp/uat-person-detail.json)
+    P_BACKLINKS=$(jq '.backlinks | type' /tmp/uat-person-detail.json)
+    if [ -n "$P_ID" ] && [ -n "$P_NAME" ] && [ "$P_BACKLINKS" = '"array"' ]; then
+      assert "m10.person_detail_shape" "pass" "person has id/name/backlinks[]"
+    else
+      assert "m10.person_detail_shape" "fail" "missing: id=${P_ID}, name=${P_NAME}, backlinks=${P_BACKLINKS}"
+    fi
+    P_CONTENT=$(jq -r '.content // empty' /tmp/uat-person-detail.json)
+    observe "m10.person_content" "${#P_CONTENT} chars" "may be empty if no brief_person has run"
+  else
+    assert "m10.person_detail" "fail" "expected 200, got ${PERSON_RESP}"
+  fi
+else
+  observe "m10.person_detail_skip" "no people" "no people in DB, skipping detail check"
+fi
+```
+
+---
+
+## Phase 15 — Report + teardown
+
+### Step 48 -- Write run report
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+ASSERTS=$(jq -s '.' .uat/runs/asserts.jsonl)
+OBSERVATIONS=$(jq -s '.' .uat/runs/observations.jsonl)
+PASS=$(echo "$ASSERTS" | jq '[.[] | select(.status=="pass")] | length')
+FAIL=$(echo "$ASSERTS" | jq '[.[] | select(.status=="fail")] | length')
+TOTAL=$(echo "$ASSERTS" | jq 'length')
+SERVER_TAIL=$(tail -100 .uat/runs/server.log 2>/dev/null || echo "")
+
+REPORT_JSON=".uat/runs/${RUN_ID}.json"
+REPORT_MD=".uat/runs/${RUN_ID}.md"
+
+jq -n \
+  --arg run "$RUN_ID" \
+  --arg ms "M10" \
+  --arg shipped "2026-04-12" \
+  --argjson asserts "$ASSERTS" \
+  --argjson obs "$OBSERVATIONS" \
+  --arg vault "$VAULT_ID" \
+  --arg sarah "$ENTRY_SARAH_ID" \
+  --arg edge "$ENTRY_EDGE_ID" \
+  --arg fail "$ENTRY_FAIL_ID" \
+  --arg heal "$ENTRY_HEAL_ID" \
+  --arg wiki "$WIKI_ID" \
+  --arg wikiType "${WIKI_TYPE_ID:-}" \
+  --arg publishedSlug "${PUBLISHED_SLUG:-}" \
+  --arg customTypeSlug "${CUSTOM_TYPE_SLUG:-}" \
+  --arg spawnWiki "${SPAWN_WIKI_ID:-}" \
+  --arg bootMs "$BOOT_MS" \
+  --arg ingestMs "$INGEST_MS" \
+  --arg tail "$SERVER_TAIL" \
+  '{
+    runId: $run,
+    milestone: $ms,
+    shippedAt: $shipped,
+    asserts: $asserts,
+    observations: $obs,
+    fixtures: {
+      vaultId: $vault,
+      entries: { sarah: $sarah, edge: $edge, failpath: $fail, healpath: $heal },
+      wikiId: $wiki,
+      wikiTypeId: $wikiType,
+      publishedSlug: $publishedSlug,
+      customTypeSlug: $customTypeSlug,
+      spawnWikiId: $spawnWiki
+    },
+    timings: { bootMs: ($bootMs|tonumber? // null), ingestMs: ($ingestMs|tonumber? // null) },
+    serverLogTail: $tail
+  }' > "$REPORT_JSON"
+
+{
+  echo "# UAT run ${RUN_ID}"
+  echo
+  echo "- Milestone: M10 (shipped 2026-04-12)"
+  echo "- Boot: ${BOOT_MS}ms"
+  echo "- Ingest (Phase 5): ${INGEST_MS}ms"
+  echo
+  echo "## Asserts: ${PASS}/${TOTAL} pass, ${FAIL} fail"
+  echo
+  echo "| Name | Status | Detail |"
+  echo "|------|--------|--------|"
+  jq -r '.[] | "| \(.name) | \(.status) | \(.detail) |"' <<< "$ASSERTS"
+  echo
+  echo "## Observations"
+  echo
+  echo "| Name | Value | Note |"
+  echo "|------|-------|------|"
+  jq -r '.[] | "| \(.name) | \(.value) | \(.note) |"' <<< "$OBSERVATIONS"
+} > "$REPORT_MD"
+
+echo "[ok] report: ${REPORT_JSON}"
+echo "[ok] report: ${REPORT_MD}"
+save_state FINAL_PASS "$PASS"
+save_state FINAL_FAIL "$FAIL"
+save_state FINAL_TOTAL "$TOTAL"
+```
+
+### Step 49 -- Teardown
+
+```bash
+set -e
+source .uat/runs/state
+source .uat/runs/helpers.sh
+
+if [ -n "${SERVER_PID:-}" ]; then
+  kill "$SERVER_PID" 2>/dev/null || true
+  sleep 1
+  pkill -f 'tsx watch.*core/src/index.ts' 2>/dev/null || true
+fi
+[ -f "$COOKIE_JAR" ] && rm -f "$COOKIE_JAR"
+
+if [ "${FINAL_FAIL:-0}" = "0" ] && [ -n "${FINAL_TOTAL:-}" ] && [ "${FINAL_TOTAL}" != "0" ]; then
+  echo "[ok] UAT complete: ${FINAL_PASS}/${FINAL_TOTAL} asserts passed"
+  exit 0
+else
+  echo "[fail] UAT incomplete: ${FINAL_FAIL}/${FINAL_TOTAL} asserts failed — see .uat/runs/${RUN_ID}.md"
+  exit 1
+fi
 ```
