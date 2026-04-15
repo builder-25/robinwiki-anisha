@@ -1,9 +1,22 @@
 'use client'
 
-// AuthGuard checks session and redirects to login if not authenticated.
-// When auth hooks land, this will use useSession() + useRouter() to redirect.
+import { useRouter, usePathname } from 'next/navigation'
+import { useEffect } from 'react'
+import { useSession } from '@/hooks/useSession'
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  // TODO: wire to useSession() when hooks PR merges
-  // For now, render children (allows pages to load during development)
+  const router = useRouter()
+  const pathname = usePathname()
+  const { isAuthenticated, isLoading } = useSession()
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && pathname !== '/login') {
+      router.push('/login')
+    }
+  }, [isLoading, isAuthenticated, pathname, router])
+
+  if (isLoading) return null
+  if (!isAuthenticated && pathname !== '/login') return null
+
   return <>{children}</>
 }
