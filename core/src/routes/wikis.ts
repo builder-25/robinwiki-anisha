@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { zValidator } from '@hono/zod-validator'
 import { generateSlug, makeLookupKey } from '@robin/shared'
 import { NoOpenRouterKeyError } from '@robin/agent'
 import { sessionMiddleware } from '../middleware/session.js'
 import { db } from '../db/client.js'
-import { wikis, edges, wikiTypes, fragments, people, auditLog } from '../db/schema.js'
+import { wikis, edges, wikiTypes, fragments, people, auditLog, edits } from '../db/schema.js'
 import { resolveWikiSlug } from '../db/slug.js'
 import { logger } from '../lib/logger.js'
 import { validationHook } from '../lib/validation.js'
@@ -24,6 +24,7 @@ import {
   toggleRegenerateResponseSchema,
   spawnWikiBodySchema,
   spawnWikiResponseSchema,
+  editHistoryResponseSchema,
 } from '../schemas/wikis.schema.js'
 import { emitAuditEvent } from '../db/audit.js'
 import { timelineQuerySchema } from '../schemas/audit.schema.js'
@@ -211,6 +212,48 @@ wikisRouter.get('/:id/timeline', async (c) => {
       createdAt: e.createdAt.toISOString(),
     })),
   })
+})
+
+// GET /wikis/:id/history — edit history for this wiki's content
+wikisRouter.get('/:id/history', async (c) => {
+  const id = c.req.param('id')
+  const query = timelineQuerySchema.safeParse({
+    limit: c.req.query('limit'),
+    offset: c.req.query('offset'),
+  })
+  const params = query.success ? query.data : { limit: 50, offset: 0 }
+
+  const [wiki] = await db
+    .select({ lookupKey: wikis.lookupKey })
+    .from(wikis)
+    .where(eq(wikis.lookupKey, id))
+  if (!wiki) return c.json({ error: 'Not found' }, 404)
+
+  const [countResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(edits)
+    .where(and(eq(edits.objectType, 'wiki'), eq(edits.objectId, id)))
+
+  const rows = await db
+    .select()
+    .from(edits)
+    .where(and(eq(edits.objectType, 'wiki'), eq(edits.objectId, id)))
+    .orderBy(desc(edits.timestamp))
+    .limit(params.limit)
+    .offset(params.offset)
+
+  return c.json(
+    editHistoryResponseSchema.parse({
+      edits: rows.map((r) => ({
+        id: r.id,
+        timestamp: r.timestamp.toISOString(),
+        type: r.type,
+        source: r.source,
+        contentSnippet: r.content.slice(0, 200),
+      })),
+      total: countResult?.count ?? 0,
+    })
+  )
 })
 
 // PUT /wikis/:id — update thread
