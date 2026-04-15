@@ -25,6 +25,24 @@ export const threadWithWikiResponseSchema = threadResponseSchema.extend({
   wikiContent: z.string(),
 })
 
+export const wikiDetailResponseSchema = threadResponseSchema.extend({
+  wikiContent: z.string(),
+  fragments: z.array(
+    z.object({
+      id: lookupKeySchema,
+      slug: z.string(),
+      title: z.string(),
+      snippet: z.string(),
+    })
+  ),
+  people: z.array(
+    z.object({
+      id: lookupKeySchema,
+      name: z.string(),
+    })
+  ),
+})
+
 export const threadListResponseSchema = z.object({
   wikis: z.array(threadResponseSchema),
 })
@@ -70,4 +88,15 @@ export const publicWikiResponseSchema = z.object({
   type: z.string(),
   publishedAt: z.coerce.date(),
   content: z.string(),
+})
+
+// ── Regenerate toggle schemas ─────────────────────────────────────────────
+
+export const toggleRegenerateBodySchema = z.object({
+  regenerate: z.boolean(),
+})
+
+export const toggleRegenerateResponseSchema = z.object({
+  id: lookupKeySchema,
+  regenerate: z.boolean(),
 })
