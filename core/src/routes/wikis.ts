@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { zValidator } from '@hono/zod-validator'
 import { generateSlug, makeLookupKey } from '@robin/shared'
 import { NoOpenRouterKeyError } from '@robin/agent'
 import { sessionMiddleware } from '../middleware/session.js'
 import { db } from '../db/client.js'
-import { wikis, edges, wikiTypes, fragments, people, auditLog } from '../db/schema.js'
+import { wikis, edges, wikiTypes, fragments, people, auditLog, edits } from '../db/schema.js'
 import { resolveWikiSlug } from '../db/slug.js'
 import { logger } from '../lib/logger.js'
 import { validationHook } from '../lib/validation.js'
@@ -15,6 +15,7 @@ import {
   threadResponseSchema,
   threadListResponseSchema,
   wikiDetailResponseSchema,
+  wikiListQuerySchema,
   updateThreadBodySchema,
   publishWikiResponseSchema,
   bouncerModeBodySchema,
@@ -25,6 +26,7 @@ import {
   spawnWikiResponseSchema,
   updateProgressBodySchema,
   updateProgressResponseSchema,
+  editHistoryResponseSchema,
 } from '../schemas/wikis.schema.js'
 import { emitAuditEvent } from '../db/audit.js'
 import { timelineQuerySchema } from '../schemas/audit.schema.js'
@@ -55,9 +57,11 @@ const wikisRouter = new Hono()
 wikisRouter.use('*', sessionMiddleware)
 
 // GET /wikis — cross-vault wiki listing with fragment counts + descriptors
-wikisRouter.get('/', async (c) => {
-  const limit = Math.min(Number(c.req.query('limit') ?? 50), 200)
-  const offset = Number(c.req.query('offset') ?? 0)
+wikisRouter.get('/', zValidator('query', wikiListQuerySchema, validationHook), async (c) => {
+  const { limit, offset, type } = c.req.valid('query')
+
+  const conditions = [isNull(wikis.deletedAt)]
+  if (type) conditions.push(eq(wikis.type, type))
 
   const rows = await db
     .select({
@@ -76,7 +80,7 @@ wikisRouter.get('/', async (c) => {
         isNull(edges.deletedAt)
       )
     )
-    .where(isNull(wikis.deletedAt))
+    .where(and(...conditions))
     .groupBy(wikis.lookupKey, wikiTypes.shortDescriptor, wikiTypes.descriptor)
     .orderBy(sql`${wikis.updatedAt} DESC`)
     .limit(limit)
@@ -211,6 +215,48 @@ wikisRouter.get('/:id/timeline', async (c) => {
       createdAt: e.createdAt.toISOString(),
     })),
   })
+})
+
+// GET /wikis/:id/history — edit history for this wiki's content
+wikisRouter.get('/:id/history', async (c) => {
+  const id = c.req.param('id')
+  const query = timelineQuerySchema.safeParse({
+    limit: c.req.query('limit'),
+    offset: c.req.query('offset'),
+  })
+  const params = query.success ? query.data : { limit: 50, offset: 0 }
+
+  const [wiki] = await db
+    .select({ lookupKey: wikis.lookupKey })
+    .from(wikis)
+    .where(eq(wikis.lookupKey, id))
+  if (!wiki) return c.json({ error: 'Not found' }, 404)
+
+  const [countResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(edits)
+    .where(and(eq(edits.objectType, 'wiki'), eq(edits.objectId, id)))
+
+  const rows = await db
+    .select()
+    .from(edits)
+    .where(and(eq(edits.objectType, 'wiki'), eq(edits.objectId, id)))
+    .orderBy(desc(edits.timestamp))
+    .limit(params.limit)
+    .offset(params.offset)
+
+  return c.json(
+    editHistoryResponseSchema.parse({
+      edits: rows.map((r) => ({
+        id: r.id,
+        timestamp: r.timestamp.toISOString(),
+        type: r.type,
+        source: r.source,
+        contentSnippet: r.content.slice(0, 200),
+      })),
+      total: countResult?.count ?? 0,
+    })
+  )
 })
 
 // PUT /wikis/:id — update thread
@@ -470,6 +516,30 @@ wikisRouter.post(
 // POST /wikis/:targetId/merge — merge source thread into target
 wikisRouter.post('/:targetId/merge', async (c) => {
   return c.json({ error: 'Not implemented — thread merge needs edges table rewrite' }, 501)
+})
+
+
+// DELETE /wikis/:id — soft delete
+wikisRouter.delete('/:id', async (c) => {
+  const id = c.req.param('id')
+  const [wiki] = await db.select().from(wikis).where(and(eq(wikis.lookupKey, id), isNull(wikis.deletedAt)))
+  if (!wiki) return c.json({ error: 'Not found' }, 404)
+
+  await db
+    .update(wikis)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(eq(wikis.lookupKey, id))
+
+  await emitAuditEvent(db, {
+    entityType: 'wiki',
+    entityId: id,
+    eventType: 'deleted',
+    source: 'api',
+    summary: `Wiki deleted: ${wiki.name}`,
+    detail: { wikiKey: id, wikiSlug: wiki.slug },
+  })
+
+  return c.body(null, 204)
 })
 
 export { wikisRouter as wikisRoutes, prepareThread }

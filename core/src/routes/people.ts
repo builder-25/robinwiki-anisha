@@ -165,4 +165,28 @@ peopleRouter.post('/:id/regenerate', async (c) => {
   return c.json({ error: 'Person regen disabled in M2 — will be restored in M3' }, 503)
 })
 
+
+// DELETE /people/:id — soft delete
+peopleRouter.delete('/:id', async (c) => {
+  const id = c.req.param('id')
+  const [person] = await db.select().from(people).where(and(eq(people.lookupKey, id), isNull(people.deletedAt)))
+  if (!person) return c.json({ error: 'Not found' }, 404)
+
+  await db
+    .update(people)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(eq(people.lookupKey, id))
+
+  await emitAuditEvent(db, {
+    entityType: 'person',
+    entityId: id,
+    eventType: 'deleted',
+    source: 'api',
+    summary: `Person deleted: ${person.name}`,
+    detail: { personKey: id },
+  })
+
+  return c.body(null, 204)
+})
+
 export { peopleRouter as peopleRoutes }

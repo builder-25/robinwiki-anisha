@@ -641,3 +641,133 @@ export async function handleEditWiki(
     }
   }
 }
+
+/**
+ * Handle the `delete_wiki` MCP tool call.
+ *
+ * @summary Soft-delete a wiki by setting deletedAt. Existing queries
+ * already filter WHERE deletedAt IS NULL, so the wiki disappears from
+ * all listings immediately.
+ */
+export async function handleDeleteWiki(
+  deps: McpServerDeps,
+  input: { wikiKey: string },
+  userId: string | undefined
+) {
+  if (!userId) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: not authenticated' }],
+      isError: true as const,
+    }
+  }
+
+  if (!input.wikiKey?.trim()) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: wikiKey is required' }],
+      isError: true as const,
+    }
+  }
+
+  try {
+    const [wiki] = await deps.db
+      .select()
+      .from(threadsTable)
+      .where(and(eq(threadsTable.lookupKey, input.wikiKey.trim()), isNull(threadsTable.deletedAt)))
+
+    if (!wiki) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Wiki not found' }) }],
+        isError: true as const,
+      }
+    }
+
+    await deps.db
+      .update(threadsTable)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(threadsTable.lookupKey, input.wikiKey.trim()))
+
+    await emitAuditEvent(deps.db, {
+      entityType: 'wiki',
+      entityId: wiki.lookupKey,
+      eventType: 'deleted',
+      source: 'mcp',
+      summary: `Wiki deleted: ${wiki.name}`,
+      detail: { wikiKey: wiki.lookupKey, wikiSlug: wiki.slug },
+    })
+
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({ deleted: true, wikiKey: wiki.lookupKey }) }],
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    log.error({ err, userId }, 'mcp delete_wiki failed')
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${message}` }],
+      isError: true as const,
+    }
+  }
+}
+
+/**
+ * Handle the `delete_person` MCP tool call.
+ *
+ * @summary Soft-delete a person by setting deletedAt.
+ */
+export async function handleDeletePerson(
+  deps: McpServerDeps,
+  input: { personKey: string },
+  userId: string | undefined
+) {
+  if (!userId) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: not authenticated' }],
+      isError: true as const,
+    }
+  }
+
+  if (!input.personKey?.trim()) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: personKey is required' }],
+      isError: true as const,
+    }
+  }
+
+  try {
+    const [person] = await deps.db
+      .select()
+      .from(peopleTable)
+      .where(and(eq(peopleTable.lookupKey, input.personKey.trim()), isNull(peopleTable.deletedAt)))
+
+    if (!person) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Person not found' }) }],
+        isError: true as const,
+      }
+    }
+
+    await deps.db
+      .update(peopleTable)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(peopleTable.lookupKey, input.personKey.trim()))
+
+    await emitAuditEvent(deps.db, {
+      entityType: 'person',
+      entityId: person.lookupKey,
+      eventType: 'deleted',
+      source: 'mcp',
+      summary: `Person deleted: ${person.name}`,
+      detail: { personKey: person.lookupKey },
+    })
+
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({ deleted: true, personKey: person.lookupKey }) }],
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    log.error({ err, userId }, 'mcp delete_person failed')
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${message}` }],
+      isError: true as const,
+    }
+  }
+}
