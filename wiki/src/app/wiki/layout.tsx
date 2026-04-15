@@ -1,0 +1,74 @@
+"use client";
+
+import { useState } from "react";
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
+
+export default function WikiLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  return (
+    <div
+      className="wiki-shell relative h-screen overflow-hidden"
+      style={{ background: "var(--bg)" }}
+    >
+      {/* Header */}
+      <div
+        className="wiki-header-bar absolute z-20"
+        style={{ top: 12, left: 44, right: 44, height: 50 }}
+      >
+        <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
+      </div>
+
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 lg:hidden"
+          style={{ background: "rgba(0,0,0,0.4)" }}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Desktop sidebar — toggleable */}
+      <aside
+        className="wiki-desktop-sidebar hidden lg:block absolute z-10 overflow-y-auto"
+        style={{
+          top: 118,
+          left: 24,
+          width: 202,
+          bottom: 0,
+          scrollbarWidth: "none",
+          transform: sidebarOpen ? "translateX(0)" : "translateX(-260px)",
+          transition: "transform 0.25s ease",
+        }}
+      >
+        <Sidebar />
+      </aside>
+
+      {/* Mobile sidebar — drawer when open */}
+      {sidebarOpen && (
+        <aside
+          className="lg:hidden fixed z-30 overflow-y-auto"
+          style={{
+            top: 0,
+            left: 0,
+            width: 250,
+            height: "100%",
+            paddingTop: 80,
+            background: "var(--bg)",
+            scrollbarWidth: "none",
+          }}
+        >
+          <Sidebar />
+        </aside>
+      )}
+
+      {/* Main content */}
+      <main className="wiki-main">{children}</main>
+    </div>
+  );
+}
