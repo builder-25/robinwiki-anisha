@@ -1,17 +1,18 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { zValidator } from '@hono/zod-validator'
 import { generateSlug } from '@robin/shared'
 import { NoOpenRouterKeyError } from '@robin/agent'
 import { sessionMiddleware } from '../middleware/session.js'
 import { db } from '../db/client.js'
-import { wikis } from '../db/schema.js'
+import { wikis, edges, wikiTypes } from '../db/schema.js'
 import { logger } from '../lib/logger.js'
 import { validationHook } from '../lib/validation.js'
 import { nanoid24 } from '../lib/id.js'
 import { regenerateWiki } from '../lib/regen.js'
 import {
   threadResponseSchema,
+  threadListResponseSchema,
   threadWithWikiResponseSchema,
   updateThreadBodySchema,
   publishWikiResponseSchema,
@@ -42,6 +43,50 @@ function prepareThread(
 
 const wikisRouter = new Hono()
 wikisRouter.use('*', sessionMiddleware)
+
+// GET /wikis — cross-vault wiki listing with fragment counts + descriptors
+wikisRouter.get('/', async (c) => {
+  const limit = Math.min(Number(c.req.query('limit') ?? 50), 200)
+  const offset = Number(c.req.query('offset') ?? 0)
+
+  const rows = await db
+    .select({
+      wiki: wikis,
+      fragmentCount: sql<number>`count(${edges.id})::int`,
+      shortDescriptor: wikiTypes.shortDescriptor,
+      descriptor: wikiTypes.descriptor,
+    })
+    .from(wikis)
+    .leftJoin(wikiTypes, eq(wikis.type, wikiTypes.slug))
+    .leftJoin(
+      edges,
+      and(
+        eq(edges.dstId, wikis.lookupKey),
+        eq(edges.edgeType, 'FRAGMENT_IN_WIKI'),
+        isNull(edges.deletedAt)
+      )
+    )
+    .where(isNull(wikis.deletedAt))
+    .groupBy(wikis.lookupKey, wikiTypes.shortDescriptor, wikiTypes.descriptor)
+    .orderBy(sql`${wikis.updatedAt} DESC`)
+    .limit(limit)
+    .offset(offset)
+
+  return c.json(
+    threadListResponseSchema.parse({
+      wikis: rows.map((r) =>
+        threadResponseSchema.parse(
+          prepareThread({
+            ...r.wiki,
+            noteCount: r.fragmentCount,
+            shortDescriptor: r.shortDescriptor ?? '',
+            descriptor: r.descriptor ?? '',
+          })
+        )
+      ),
+    })
+  )
+})
 
 // GET /wikis/:id — get single thread (wiki body lives in DB now)
 wikisRouter.get('/:id', async (c) => {
