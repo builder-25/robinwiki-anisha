@@ -436,4 +436,28 @@ wikisRouter.post('/:targetId/merge', async (c) => {
   return c.json({ error: 'Not implemented — thread merge needs edges table rewrite' }, 501)
 })
 
+
+// DELETE /wikis/:id — soft delete
+wikisRouter.delete('/:id', async (c) => {
+  const id = c.req.param('id')
+  const [wiki] = await db.select().from(wikis).where(and(eq(wikis.lookupKey, id), isNull(wikis.deletedAt)))
+  if (!wiki) return c.json({ error: 'Not found' }, 404)
+
+  await db
+    .update(wikis)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(eq(wikis.lookupKey, id))
+
+  await emitAuditEvent(db, {
+    entityType: 'wiki',
+    entityId: id,
+    eventType: 'deleted',
+    source: 'api',
+    summary: `Wiki deleted: ${wiki.name}`,
+    detail: { wikiKey: id, wikiSlug: wiki.slug },
+  })
+
+  return c.body(null, 204)
+})
+
 export { wikisRouter as wikisRoutes, prepareThread }

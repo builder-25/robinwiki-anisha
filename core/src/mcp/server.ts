@@ -22,7 +22,7 @@ import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { listWikis, getThread, getFragment, findPersonById, findPersonByQuery, listWikiTypes, briefPerson, resolveThreadBySlug } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
-import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki } from './handlers.js'
+import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki, handleDeleteWiki, handleDeletePerson } from './handlers.js'
 import type { McpServerDeps } from './handlers.js'
 import { wikis, edges, auditLog } from '../db/schema.js'
 import { nanoid24 } from '../lib/id.js'
@@ -131,7 +131,37 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
     }
   )
 
-  /***********************************************************************
+  server.registerTool(
+    'delete_wiki',
+    {
+      description:
+        'Soft-delete a wiki. The wiki will no longer appear in listings or search. ' +
+        'Use list_wikis to find the lookupKey first.',
+      inputSchema: {
+        wikiKey: z.string().describe('Wiki lookupKey (from list_wikis)'),
+      },
+    },
+    async ({ wikiKey }, extra) => {
+      return handleDeleteWiki(deps, { wikiKey }, extra.authInfo?.clientId as string)
+    }
+  )
+
+  server.registerTool(
+    'delete_person',
+    {
+      description:
+        'Soft-delete a person. The person will no longer appear in listings or search. ' +
+        'Use find_person to find the lookupKey first.',
+      inputSchema: {
+        personKey: z.string().describe('Person lookupKey (from find_person)'),
+      },
+    },
+    async ({ personKey }, extra) => {
+      return handleDeletePerson(deps, { personKey }, extra.authInfo?.clientId as string)
+    }
+  )
+
+    /***********************************************************************
    * ## Wiki listing
    ***********************************************************************/
 
