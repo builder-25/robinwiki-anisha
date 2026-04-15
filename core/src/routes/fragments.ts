@@ -176,24 +176,6 @@ fragmentsRouter.put('/:id', zValidator('json', updateFragmentBodySchema, validat
   return c.json(fragmentResponseSchema.parse({ ...fragment, id: fragment.lookupKey }))
 })
 
-// PUT /fragments/:id/thread — move fragment to a thread (or unfile)
-// TODO(phase-5): rewrite to use edges table (FRAGMENT_IN_WIKI edge)
-fragmentsRouter.put('/:id/thread', async (c) => {
-  return c.json({ error: 'Not implemented — use edges table' }, 501)
-})
-
-// GET /fragments/:id/links — outgoing connections from this fragment
-// TODO(phase-5): rewrite to use edges table
-fragmentsRouter.get('/:id/links', async (c) => {
-  return c.json({ links: [] })
-})
-
-// GET /fragments/:id/backlinks — incoming connections to this fragment
-// TODO(phase-5): rewrite to use edges table
-fragmentsRouter.get('/:id/backlinks', async (c) => {
-  return c.json({ backlinks: [] })
-})
-
 // POST /fragments/:id/accept — accept fragment into a review-mode wiki
 fragmentsRouter.post('/:id/accept', zValidator('json', fragmentReviewBodySchema, validationHook), async (c) => {
   const id = c.req.param('id')

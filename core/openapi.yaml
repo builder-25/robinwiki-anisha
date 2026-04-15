@@ -251,43 +251,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/errorResponseSchema"
 
-  /fragments/{id}/thread:
-    put:
-      operationId: setFragmentThread
-      summary: Move fragment to thread (not implemented)
-      tags: [Fragments]
-      parameters:
-        - $ref: "#/components/parameters/Id"
-      responses:
-        "501":
-          description: Not implemented
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  /fragments/{id}/links:
-    get:
-      operationId: getFragmentLinks
-      summary: Get outgoing connections (stub)
-      tags: [Fragments]
-      parameters:
-        - $ref: "#/components/parameters/Id"
-      responses:
-        "200":
-          description: Outgoing links (empty)
-
-  /fragments/{id}/backlinks:
-    get:
-      operationId: getFragmentBacklinks
-      summary: Get incoming connections (stub)
-      tags: [Fragments]
-      parameters:
-        - $ref: "#/components/parameters/Id"
-      responses:
-        "200":
-          description: Incoming backlinks (empty)
-
   # ── Threads ────────────────────────────────────────────────────────
 
   /threads/{id}:
