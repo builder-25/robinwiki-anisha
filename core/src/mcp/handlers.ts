@@ -53,6 +53,7 @@ import type { KnownPerson } from '@robin/agent'
 import { eq, and, isNull } from 'drizzle-orm'
 import { nanoid } from '../lib/id.js'
 import { logger } from '../lib/logger.js'
+import { emitAuditEvent } from '../db/audit.js'
 
 const log = logger.child({ component: 'mcp' })
 
@@ -152,6 +153,15 @@ export async function handleLogEntry(
       source: entrySource,
     }
     await deps.producer.enqueueExtraction(job)
+
+    await emitAuditEvent(deps.db, {
+      entityType: 'raw_source',
+      entityId: entryKey,
+      eventType: 'ingested',
+      source: entrySource,
+      summary: `Entry ingested: ${title}`,
+      detail: { entryKey, source: entrySource, vaultId: defaultVaultId },
+    })
 
     deps.spawnWriteWorker(userId)
 
@@ -338,6 +348,15 @@ export async function handleLogFragment(
       .set({ state: 'PENDING', updatedAt: now })
       .where(eq(threadsTable.lookupKey, threadResult.lookupKey))
 
+    await emitAuditEvent(deps.db, {
+      entityType: 'fragment',
+      entityId: fragKey,
+      eventType: 'created',
+      source: 'mcp',
+      summary: `Fragment created: ${title}`,
+      detail: { fragmentKey: fragKey, wikiKey: threadResult.lookupKey, threadSlug: threadResult.slug },
+    })
+
     const result = {
       fragmentKey: fragKey,
       fragmentSlug: fragSlug,
@@ -435,6 +454,15 @@ export async function handleCreateWikiType(
       })
       .returning()
 
+    await emitAuditEvent(deps.db, {
+      entityType: 'wiki_type',
+      entityId: slug,
+      eventType: 'created',
+      source: 'mcp',
+      summary: `Wiki type created: ${input.name.trim()}`,
+      detail: { slug, name: input.name.trim() },
+    })
+
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(created) }],
     }
@@ -486,6 +514,15 @@ export async function handleCreateWiki(
       type: inferredType,
       state: 'PENDING',
       prompt: '',
+    })
+
+    await emitAuditEvent(deps.db, {
+      entityType: 'wiki',
+      entityId: lookupKey,
+      eventType: 'created',
+      source: 'mcp',
+      summary: `Wiki created: ${input.title.trim()}`,
+      detail: { wikiKey: lookupKey, type: inferredType },
     })
 
     const result = { slug: finalSlug, lookupKey, inferredType }
@@ -580,6 +617,15 @@ export async function handleEditWiki(
       content: previousContent,
       diff: '',
       source: 'mcp',
+    })
+
+    await emitAuditEvent(deps.db, {
+      entityType: 'wiki',
+      entityId: wiki.lookupKey,
+      eventType: 'edited',
+      source: 'mcp',
+      summary: `Wiki edited via MCP: ${wiki.slug}`,
+      detail: { wikiKey: wiki.lookupKey, wikiSlug: wiki.slug },
     })
 
     const result = { wikiSlug: wiki.slug, lookupKey: wiki.lookupKey, recorded: true }

@@ -28,6 +28,7 @@ import { wikis } from '../db/schema.js'
 import { nanoid24 } from '../lib/id.js'
 import { hybridSearch } from '../lib/search.js'
 import { loadOpenRouterConfigFromDb } from '../lib/openrouter-config.js'
+import { emitAuditEvent } from '../db/audit.js'
 
 export type { McpServerDeps }
 
@@ -424,6 +425,15 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
           .where(eq(wikis.lookupKey, wikiKey))
           .returning()
 
+        await emitAuditEvent(deps.db, {
+          entityType: 'wiki',
+          entityId: wikiKey,
+          eventType: 'published',
+          source: 'mcp',
+          summary: `Wiki published: ${wiki.name}`,
+          detail: { wikiKey, publishedSlug: slug },
+        })
+
         return {
           content: [{
             type: 'text' as const,
@@ -472,6 +482,15 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
           .set({ published: false, updatedAt: new Date() })
           .where(eq(wikis.lookupKey, wikiKey))
           .returning()
+
+        await emitAuditEvent(deps.db, {
+          entityType: 'wiki',
+          entityId: wikiKey,
+          eventType: 'unpublished',
+          source: 'mcp',
+          summary: `Wiki unpublished: ${wiki.name}`,
+          detail: { wikiKey },
+        })
 
         return {
           content: [{
