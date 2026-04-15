@@ -47,4 +47,28 @@ export const exportDataResponseSchema = z.object({
   people: z.array(z.any()),
 })
 
+
+// ── User settings ──────────────────────────────────────────────────────────
+
+export const userSettingsSchema = z.object({
+  notifications: z.object({
+    email: z.boolean(),
+    push: z.boolean(),
+  }),
+  privacy: z.object({
+    publicProfile: z.boolean(),
+  }),
+  theme: z.enum(['light', 'dark', 'system']),
+})
+
+export type UserSettings = z.infer<typeof userSettingsSchema>
+
+export const USER_SETTINGS_DEFAULTS: UserSettings = {
+  notifications: { email: true, push: true },
+  privacy: { publicProfile: false },
+  theme: 'system',
+}
+
+export const userSettingsResponseSchema = userSettingsSchema
+
 export { okResponseSchema }
