@@ -5,7 +5,7 @@ import { generateSlug, makeLookupKey } from '@robin/shared'
 import { NoOpenRouterKeyError } from '@robin/agent'
 import { sessionMiddleware } from '../middleware/session.js'
 import { db } from '../db/client.js'
-import { wikis, edges, wikiTypes, fragments, people } from '../db/schema.js'
+import { wikis, edges, wikiTypes, fragments, people, auditLog } from '../db/schema.js'
 import { resolveWikiSlug } from '../db/slug.js'
 import { logger } from '../lib/logger.js'
 import { validationHook } from '../lib/validation.js'
@@ -24,6 +24,8 @@ import {
   spawnWikiBodySchema,
   spawnWikiResponseSchema,
 } from '../schemas/wikis.schema.js'
+import { emitAuditEvent } from '../db/audit.js'
+import { timelineQuerySchema } from '../schemas/audit.schema.js'
 
 const log = logger.child({ component: 'wikis' })
 
@@ -167,6 +169,47 @@ wikisRouter.get('/:id', async (c) => {
   )
 })
 
+// GET /wikis/:id/timeline — audit events related to this wiki and its fragments
+wikisRouter.get('/:id/timeline', async (c) => {
+  const id = c.req.param('id')
+  const query = timelineQuerySchema.safeParse({
+    limit: c.req.query('limit'),
+    offset: c.req.query('offset'),
+  })
+  const params = query.success ? query.data : { limit: 50, offset: 0 }
+
+  const [wiki] = await db.select({ lookupKey: wikis.lookupKey }).from(wikis).where(eq(wikis.lookupKey, id))
+  if (!wiki) return c.json({ error: 'Not found' }, 404)
+
+  const fragmentEdges = await db
+    .select({ srcId: edges.srcId })
+    .from(edges)
+    .where(
+      and(
+        eq(edges.dstId, id),
+        eq(edges.edgeType, 'FRAGMENT_IN_WIKI'),
+        isNull(edges.deletedAt)
+      )
+    )
+
+  const relatedIds = [id, ...fragmentEdges.map(e => e.srcId)]
+
+  const events = await db
+    .select()
+    .from(auditLog)
+    .where(inArray(auditLog.entityId, relatedIds))
+    .orderBy(sql`${auditLog.createdAt} DESC`)
+    .limit(params.limit)
+    .offset(params.offset)
+
+  return c.json({
+    events: events.map((e) => ({
+      ...e,
+      createdAt: e.createdAt.toISOString(),
+    })),
+  })
+})
+
 // PUT /wikis/:id — update thread
 wikisRouter.put('/:id', zValidator('json', updateThreadBodySchema, validationHook), async (c) => {
   const id = c.req.param('id')
@@ -193,6 +236,15 @@ wikisRouter.put('/:id', zValidator('json', updateThreadBodySchema, validationHoo
     .where(eq(wikis.lookupKey, id))
     .returning()
 
+  await emitAuditEvent(db, {
+    entityType: 'wiki',
+    entityId: id,
+    eventType: 'edited',
+    source: 'api',
+    summary: `Wiki edited: ${thread.name}`,
+    detail: { wikiKey: id, changedFields: Object.keys(updates).filter(k => k !== 'updatedAt') },
+  })
+
   return c.json(threadResponseSchema.parse(prepareThread(thread)))
 })
 
@@ -218,6 +270,15 @@ wikisRouter.post('/:id/publish', async (c) => {
     .where(eq(wikis.lookupKey, id))
     .returning()
 
+  await emitAuditEvent(db, {
+    entityType: 'wiki',
+    entityId: id,
+    eventType: 'published',
+    source: 'api',
+    summary: `Wiki published: ${wiki.name}`,
+    detail: { wikiKey: id, publishedSlug: slug },
+  })
+
   return c.json(publishWikiResponseSchema.parse(updated))
 })
 
@@ -232,6 +293,15 @@ wikisRouter.post('/:id/unpublish', async (c) => {
     .set({ published: false, updatedAt: new Date() })
     .where(eq(wikis.lookupKey, id))
     .returning()
+
+  await emitAuditEvent(db, {
+    entityType: 'wiki',
+    entityId: id,
+    eventType: 'unpublished',
+    source: 'api',
+    summary: `Wiki unpublished: ${wiki.name}`,
+    detail: { wikiKey: id },
+  })
 
   return c.json(publishWikiResponseSchema.parse(updated))
 })
@@ -298,6 +368,15 @@ wikisRouter.patch('/:id/bouncer', zValidator('json', bouncerModeBodySchema, vali
     .update(wikis)
     .set({ bouncerMode: mode, updatedAt: new Date() })
     .where(eq(wikis.lookupKey, id))
+
+  await emitAuditEvent(db, {
+    entityType: 'wiki',
+    entityId: id,
+    eventType: 'edited',
+    source: 'api',
+    summary: `Wiki bouncer mode set to ${mode}`,
+    detail: { wikiKey: id, changedFields: ['bouncerMode'] },
+  })
 
   return c.json(bouncerModeResponseSchema.parse({ id, bouncerMode: mode }))
 })
