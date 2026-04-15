@@ -173,6 +173,16 @@ async function processExtractionJob(job: ExtractionJob): Promise<JobResult> {
       insertEntry: async (entry) => {
         const e = entry as Record<string, unknown>
         const content = (e.content as string) ?? ''
+        const sourceLabel: Record<string, string> = {
+          'mcp.claude': 'Claude conversation',
+          'mcp.cursor': 'Cursor session',
+          'mcp': 'MCP session',
+          'api': 'API import',
+          'web': 'Web capture',
+        }
+        const src = (e.source as string) ?? 'api'
+        const displayName = `${sourceLabel[src] ?? src}, ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+        const sourceMetadata = { displayName, channel: src }
         await db
           .insert(entries)
           .values({
@@ -180,7 +190,8 @@ async function processExtractionJob(job: ExtractionJob): Promise<JobResult> {
             slug: e.slug as string,
             title: (e.title as string) ?? '',
             content,
-            source: (e.source as string) ?? 'api',
+            source: src,
+            sourceMetadata,
             type: (e.type as string) ?? 'thought',
             vaultId: (e.vaultId as string | null) ?? null,
             state: (e.state as 'PENDING' | 'LINKING' | 'RESOLVED') ?? 'PENDING',
@@ -192,6 +203,7 @@ async function processExtractionJob(job: ExtractionJob): Promise<JobResult> {
               slug: e.slug as string,
               title: (e.title as string) ?? '',
               content,
+              sourceMetadata,
               vaultId: (e.vaultId as string | null) ?? null,
               updatedAt: new Date(),
             },
@@ -207,6 +219,7 @@ async function processExtractionJob(job: ExtractionJob): Promise<JobResult> {
           title: (f.title as string) ?? '',
           type: (f.type as string) ?? null,
           tags: ((f.tags as string[]) ?? []) as string[],
+          confidence: (f.confidence as number | null) ?? null,
           entryId: (f.entryId as string | null) ?? null,
           vaultId: (f.vaultId as string | null) ?? null,
           state: (f.state as 'PENDING' | 'LINKING' | 'RESOLVED') ?? 'PENDING',
