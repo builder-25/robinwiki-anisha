@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { eq, and, isNull, sql } from 'drizzle-orm'
+import { zValidator } from '@hono/zod-validator'
 import { sessionMiddleware } from '../middleware/session.js'
 import { db } from '../db/client.js'
 import {
@@ -15,6 +16,9 @@ import {
 } from '../db/schema.js'
 import { decryptPrivateKey } from '../keypair.js'
 import { signMcpToken } from '../mcp/jwt.js'
+import { validationHook } from '../lib/validation.js'
+import { getConfig, setConfig } from '../lib/config.js'
+import { emitAuditEvent } from '../db/audit.js'
 import {
   userProfileResponseSchema,
   userStatsResponseSchema,
@@ -22,6 +26,9 @@ import {
   keypairResponseSchema,
   mcpEndpointResponseSchema,
   exportDataResponseSchema,
+  userSettingsSchema,
+  userSettingsResponseSchema,
+  USER_SETTINGS_DEFAULTS,
 } from '../schemas/users.schema.js'
 import { okResponseSchema } from '../schemas/base.schema.js'
 
@@ -192,5 +199,45 @@ usersRouter.delete('/account', async (c) => {
   await db.delete(users).where(eq(users.id, userId))
   return c.json(okResponseSchema.parse({ ok: true }))
 })
+
+// GET /users/settings
+usersRouter.get('/settings', async (c) => {
+  const userId = c.get('userId') as string
+  const raw = await getConfig({ scope: 'user', userId, kind: 'user_settings', key: 'default' })
+  if (!raw) {
+    return c.json(userSettingsResponseSchema.parse(USER_SETTINGS_DEFAULTS))
+  }
+  const merged = { ...USER_SETTINGS_DEFAULTS, ...(raw as Record<string, unknown>) }
+  return c.json(userSettingsResponseSchema.parse(merged))
+})
+
+// PUT /users/settings
+usersRouter.put(
+  '/settings',
+  zValidator('json', userSettingsSchema, validationHook),
+  async (c) => {
+    const userId = c.get('userId') as string
+    const body = c.req.valid('json')
+
+    await setConfig({
+      scope: 'user',
+      userId,
+      kind: 'user_settings',
+      key: 'default',
+      value: body,
+    })
+
+    await emitAuditEvent(db, {
+      entityType: 'user_settings',
+      entityId: userId,
+      eventType: 'updated',
+      source: 'api',
+      summary: 'User settings updated',
+      detail: body as unknown as Record<string, unknown>,
+    })
+
+    return c.json(okResponseSchema.parse({ ok: true }))
+  }
+)
 
 export { usersRouter as users }
