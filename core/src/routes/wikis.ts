@@ -56,7 +56,7 @@ function prepareThread(
 const wikisRouter = new Hono()
 wikisRouter.use('*', sessionMiddleware)
 
-// GET /wikis — cross-vault wiki listing with fragment counts + descriptors
+// GET /wikis — wiki listing with fragment counts + descriptors
 wikisRouter.get('/', zValidator('query', wikiListQuerySchema, validationHook), async (c) => {
   const { limit, offset, type } = c.req.valid('query')
 

@@ -31,7 +31,6 @@ export const threadResponseSchema = z.object({
   type: z.string(),
   prompt: z.string(),
   state: objectStateSchema,
-  vaultId: z.string().nullable(),
   lastRebuiltAt: z.coerce.date().nullable(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
