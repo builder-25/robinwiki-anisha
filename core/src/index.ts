@@ -29,6 +29,7 @@ import { publishedRoutes } from './routes/published.js'
 import { startWorkers } from './queue/worker.js'
 import { bullBoardApp } from './routes/bull-board.js'
 import { adminRoutes } from './routes/admin.js'
+import { authRecoverRoutes } from './routes/auth-recover.js'
 import { checkOpenRouterKey } from './bootstrap/check-openrouter-key.js'
 import { loadMasterKey } from './lib/crypto.js'
 
@@ -97,6 +98,7 @@ app.get('/openapi.json', (c) => c.json(openapiSpec))
 // M2 dormant: git-sync webhook. See import comment above.
 // app.route('/internal', internalRoutes)
 app.route('/admin', adminRoutes)
+app.route('/auth', authRecoverRoutes)
 app.route('/published', publishedRoutes)
 app.use('/api/auth/*', (c) => auth.handler(c.req.raw))
 app.route('/admin/queues', bullBoardApp)
