@@ -65,8 +65,37 @@ export default function PromptsStep({ onNext, onSkip }: PromptsStepProps) {
   const [editedKeys, setEditedKeys] = useState<Set<string>>(new Set());
   const [modalType, setModalType] = useState<WikiTypePrompt | null>(null);
   const [modalDraft, setModalDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const hasEdited = editedKeys.size > 0;
+
+  const handleContinue = async () => {
+    if (editedKeys.size === 0) {
+      onNext();
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await Promise.all(
+        Array.from(editedKeys).map((key) =>
+          fetch(`/api/wiki-types/${key}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ prompt: prompts[key] }),
+          }),
+        ),
+      );
+      onNext();
+    } catch {
+      setError("Some prompts failed to save, but you can continue.");
+      onNext();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const openModal = (type: WikiTypePrompt) => {
     setModalType(type);
@@ -181,6 +210,15 @@ export default function PromptsStep({ onNext, onSkip }: PromptsStepProps) {
           </div>
         </ScrollArea>
 
+        {error && (
+          <p
+            className="w-full"
+            style={{ marginTop: 8, ...T.helper, color: "var(--destructive, #ef4444)" }}
+          >
+            {error}
+          </p>
+        )}
+
         <div
           className="flex w-full items-center justify-between"
           style={{ marginTop: 32 }}
@@ -189,6 +227,7 @@ export default function PromptsStep({ onNext, onSkip }: PromptsStepProps) {
             type="button"
             variant="ghost"
             onClick={onSkip}
+            disabled={saving}
             className="rounded-none"
             style={{ color: "var(--skip-link)" }}
           >
@@ -196,10 +235,10 @@ export default function PromptsStep({ onNext, onSkip }: PromptsStepProps) {
           </Button>
           <ActionButton
             type="button"
-            onClick={onNext}
-            disabled={!hasEdited}
+            onClick={handleContinue}
+            disabled={!hasEdited || saving}
           >
-            Continue
+            {saving ? "Saving..." : "Continue"}
           </ActionButton>
         </div>
       </div>

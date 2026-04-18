@@ -67,8 +67,33 @@ export default function CustomizeStep({ onNext }: CustomizeStepProps) {
   const [apiKey, setApiKey] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState(embeddingModels[0]);
   const [fragmentModel, setFragmentModel] = useState(fragmentModels[0]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const canContinue = apiKey.trim().length > 0;
+  const canContinue = apiKey.trim().length > 0 && !saving;
+
+  const handleContinue = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/users/preferences/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ openRouterKey: apiKey }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ message: "Failed to save API key" }));
+        setError(body.message || body.error || "Failed to save API key");
+        setSaving(false);
+        return;
+      }
+      onNext();
+    } catch {
+      setError("Network error. Please try again.");
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col items-start" style={{ width: 320 }}>
@@ -136,6 +161,14 @@ export default function CustomizeStep({ onNext }: CustomizeStepProps) {
         >
           Your key is stored securely. Robin never sees it.
         </p>
+        {error && (
+          <p
+            className="mt-2"
+            style={{ ...T.helper, color: "var(--destructive, #ef4444)" }}
+          >
+            {error}
+          </p>
+        )}
       </div>
 
       <div
@@ -201,11 +234,11 @@ export default function CustomizeStep({ onNext }: CustomizeStepProps) {
 
       <ActionButton
         type="button"
-        onClick={onNext}
+        onClick={handleContinue}
         disabled={!canContinue}
         className="mt-10 self-end"
       >
-        Continue
+        {saving ? "Saving..." : "Continue"}
       </ActionButton>
     </div>
   );
