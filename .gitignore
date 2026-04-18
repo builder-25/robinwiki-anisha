@@ -13,6 +13,10 @@ next-env.d.ts
 !.claude/skills
 !.claude/gitkeep
 
+.env
+.env.*
+!.env.example
+
 
 
 ## docs/plans tracked for design decisions
