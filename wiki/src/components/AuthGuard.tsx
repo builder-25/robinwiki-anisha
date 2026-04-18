@@ -9,14 +9,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { isAuthenticated, isLoading } = useSession()
 
+  const isPublicPath = pathname === '/login' || pathname === '/recover'
+
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && pathname !== '/login') {
+    if (!isLoading && !isAuthenticated && !isPublicPath) {
       router.push('/login')
     }
-  }, [isLoading, isAuthenticated, pathname, router])
+  }, [isLoading, isAuthenticated, isPublicPath, router])
 
   if (isLoading) return null
-  if (!isAuthenticated && pathname !== '/login') return null
+  if (!isAuthenticated && !isPublicPath) return null
 
   return <>{children}</>
 }
