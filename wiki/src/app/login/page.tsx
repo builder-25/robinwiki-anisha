@@ -1,17 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
+import { useSession } from '@/hooks/useSession'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { isAuthenticated, isLoading } = useSession()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Already authenticated — let root route decide where to go
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace('/')
+    }
+  }, [isLoading, isAuthenticated, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -19,27 +26,15 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      if (isSignUp) {
-        const { error: signUpError } = await authClient.signUp.email({
-          email,
-          password,
-          name,
-        })
-        if (signUpError) {
-          setError(signUpError.message ?? 'Sign up failed')
-          return
-        }
-      } else {
-        const { error: signInError } = await authClient.signIn.email({
-          email,
-          password,
-        })
-        if (signInError) {
-          setError(signInError.message ?? 'Sign in failed')
-          return
-        }
+      const { error: signInError } = await authClient.signIn.email({
+        email,
+        password,
+      })
+      if (signInError) {
+        setError(signInError.message ?? 'Sign in failed')
+        return
       }
-      router.push('/wiki')
+      router.push('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed')
     } finally {
@@ -60,17 +55,10 @@ export default function LoginPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ width: '100%', maxWidth: 360 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24, textAlign: 'center' }}>
-          {isSignUp ? 'Create Account' : 'Sign In'}
+          Sign In
         </h1>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {isSignUp && (
-            <div>
-              <label htmlFor="name" style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Name</label>
-              <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} required={isSignUp} style={inputStyle} />
-            </div>
-          )}
-
           <div>
             <label htmlFor="email" style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Email</label>
             <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={inputStyle} />
@@ -98,18 +86,17 @@ export default function LoginPage() {
               opacity: loading ? 0.5 : 1,
             }}
           >
-            {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+            {loading ? 'Please wait...' : 'Sign In'}
           </button>
         </form>
 
         <p style={{ fontSize: 14, textAlign: 'center', marginTop: 16, color: '#666' }}>
-          {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button
-            onClick={() => { setIsSignUp(!isSignUp); setError(null) }}
-            style={{ background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', color: '#111', fontSize: 14 }}
+          <a
+            href="/recover"
+            style={{ color: '#111', textDecoration: 'underline', fontSize: 14 }}
           >
-            {isSignUp ? 'Sign in' : 'Sign up'}
-          </button>
+            Forgot password?
+          </a>
         </p>
       </div>
     </div>
