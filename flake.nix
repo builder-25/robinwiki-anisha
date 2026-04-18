@@ -132,7 +132,7 @@ PGCONF
           echo "wiki:     already running (pid $(cat "$WIKI_PID"))"
         else
           echo "wiki:     starting..."
-          (cd "$PROJECT_ROOT" && pnpm --filter @robin/wiki dev -- -p 8080 >> "$WIKI_LOG" 2>&1) &
+          (cd "$PROJECT_ROOT" && PORT=8080 pnpm --filter @robin/wiki dev >> "$WIKI_LOG" 2>&1) &
           echo $! > "$WIKI_PID"
           for i in $(seq 1 30); do
             if ${pkgs.curl}/bin/curl -sf http://localhost:8080 > /dev/null 2>&1; then
