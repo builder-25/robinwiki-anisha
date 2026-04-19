@@ -1,15 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
+import type { EditorView } from "@codemirror/view";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { T } from "@/lib/typography";
 import { getPromptIcon } from "@/lib/promptIcons";
 import { cn } from "@/lib/utils";
 import type { ApiErrorBody, PromptEditorProps } from "./types";
+import VariableChipList from "./VariableChipList";
 
 // Dynamic-import the CodeMirror wrapper so CM6 never ships in the server bundle.
 const PromptEditorCM = dynamic(() => import("./PromptEditorCM"), {
@@ -26,7 +33,7 @@ export default function PromptEditor({
   displayLabel,
   initialYaml,
   defaultYaml: _defaultYaml,
-  inputVariables: _inputVariables,
+  inputVariables,
   basedOnVersion,
   userModified,
   onSaved,
@@ -40,8 +47,21 @@ export default function PromptEditor({
   const [savedYaml, setSavedYaml] = useState(initialYaml);
   const [saveError, setSaveError] = useState<ApiErrorBody | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const viewRef = useRef<EditorView | null>(null);
 
   const Icon = getPromptIcon(slug);
+
+  const handleInsertVariable = useCallback((name: string) => {
+    const view = viewRef.current;
+    if (!view) return;
+    const token = `{{${name}}}`;
+    const head = view.state.selection.main.head;
+    view.dispatch({
+      changes: { from: head, insert: token },
+      selection: { anchor: head + token.length },
+    });
+    view.focus();
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -138,14 +158,48 @@ export default function PromptEditor({
         )}
       >
         <div className="min-h-[400px] overflow-hidden rounded border border-input bg-background">
-          <PromptEditorCM value={yaml} onChange={setYaml} compact={compact} />
+          <PromptEditorCM
+            value={yaml}
+            onChange={setYaml}
+            compact={compact}
+            variables={inputVariables}
+            onViewReady={(v) => {
+              viewRef.current = v;
+            }}
+          />
         </div>
         {!compact ? (
           <aside className="min-w-0">
-            {/* TODO(PE-03): VariableChipList + ValidationBanner mount here */}
+            <VariableChipList
+              variables={inputVariables}
+              onInsert={handleInsertVariable}
+            />
           </aside>
         ) : null}
       </div>
+
+      {compact ? (
+        <Collapsible>
+          <CollapsibleTrigger
+            render={
+              <button
+                type="button"
+                className="flex w-full items-center gap-1.5 rounded border border-input px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
+              />
+            }
+          >
+            <ChevronDown className="size-3.5" aria-hidden />
+            {inputVariables.length} variable
+            {inputVariables.length === 1 ? "" : "s"}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <VariableChipList
+              variables={inputVariables}
+              onInsert={handleInsertVariable}
+            />
+          </CollapsibleContent>
+        </Collapsible>
+      ) : null}
 
       {/* Save error (temporary; Plan 04 replaces with ValidationBanner) */}
       {saveError ? (
