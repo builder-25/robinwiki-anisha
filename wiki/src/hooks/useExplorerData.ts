@@ -83,7 +83,7 @@ export function useExplorerData(filters: ExplorerFilters) {
         groupName: null,
         groupColor: null,
         date: person.updatedAt,
-        href: `/wiki/person/${person.lookupKey}`,
+        href: `/wiki/people/${person.lookupKey}`,
       })
     }
 
