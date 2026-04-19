@@ -145,7 +145,7 @@ export default function PromptEditorCM({
       height={compact ? "320px" : "100%"}
       minHeight={compact ? "320px" : "400px"}
       maxHeight={compact ? "60vh" : "70vh"}
-      onCreateEditor={(view) => onViewReady?.(view)}
+      onCreateEditor={(view: EditorView) => onViewReady?.(view)}
     />
   );
 }

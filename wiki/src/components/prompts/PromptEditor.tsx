@@ -261,7 +261,7 @@ export default function PromptEditor({
             onChange={setYaml}
             compact={compact}
             variables={inputVariables}
-            onViewReady={(v) => {
+            onViewReady={(v: EditorView) => {
               viewRef.current = v;
             }}
           />

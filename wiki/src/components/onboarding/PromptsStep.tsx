@@ -43,7 +43,7 @@ export default function PromptsStep({ onNext, onSkip }: PromptsStepProps) {
 
   return (
     <>
-      <div className="flex flex-col items-start" style={{ width: 320 }}>
+      <div className="flex flex-col items-start" style={{ width: 320, marginTop: "40vh" }}>
         <p
           className="whitespace-nowrap"
           style={{
@@ -78,7 +78,7 @@ export default function PromptsStep({ onNext, onSkip }: PromptsStepProps) {
 
         <div
           className="flex w-full flex-col"
-          style={{ marginTop: 32, gap: 10 }}
+          style={{ marginTop: 32, gap: 10, paddingBottom: 120 }}
         >
           {isLoading ? (
             <div className="flex w-full justify-center py-6">
@@ -153,10 +153,17 @@ export default function PromptsStep({ onNext, onSkip }: PromptsStepProps) {
           )}
         </div>
 
-        <div
-          className="flex w-full items-center justify-between"
-          style={{ marginTop: 32 }}
-        >
+      </div>
+
+      <div
+        className="fixed inset-x-0 bottom-0 flex items-center justify-center"
+        style={{
+          background: "linear-gradient(to top, var(--background) 60%, transparent)",
+          paddingBottom: 32,
+          paddingTop: 24,
+        }}
+      >
+        <div className="flex w-full items-center justify-between" style={{ width: 320 }}>
           <Button
             type="button"
             variant="ghost"

@@ -218,7 +218,7 @@ export default function CustomizeStep({ onNext }: CustomizeStepProps) {
   }
 
   return (
-    <div className="flex flex-col items-start" style={{ width: 320 }}>
+    <div className="flex flex-col items-start" style={{ width: 320, paddingBottom: 120, marginBottom: 40 }}>
       <p
         className="whitespace-nowrap"
         style={{
@@ -299,26 +299,32 @@ export default function CustomizeStep({ onNext }: CustomizeStepProps) {
       )}
 
       <div
-        className="flex w-full items-center justify-between"
-        style={{ marginTop: 32 }}
+        className="fixed inset-x-0 bottom-0 flex items-center justify-center"
+        style={{
+          background: "linear-gradient(to top, var(--background) 60%, transparent)",
+          paddingBottom: 32,
+          paddingTop: 24,
+        }}
       >
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onNext}
-          disabled={saving}
-          className="rounded-none"
-          style={{ color: "var(--skip-link)" }}
-        >
-          Skip
-        </Button>
-        <ActionButton
-          type="button"
-          onClick={handleContinue}
-          disabled={saving}
-        >
-          {saving ? "Saving..." : "Continue"}
-        </ActionButton>
+        <div className="flex w-full items-center justify-between" style={{ width: 320 }}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onNext}
+            disabled={saving}
+            className="rounded-none"
+            style={{ color: "var(--skip-link)" }}
+          >
+            Skip
+          </Button>
+          <ActionButton
+            type="button"
+            onClick={handleContinue}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Continue"}
+          </ActionButton>
+        </div>
       </div>
     </div>
   );
