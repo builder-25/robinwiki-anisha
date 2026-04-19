@@ -27,46 +27,11 @@ function InfoIcon() {
   );
 }
 
-function ChevronDownIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden
-      className="text-[var(--input-placeholder)]"
-    >
-      <path
-        d="M4 6l4 4 4-4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-const embeddingModels = [
-  "text-embedding-3-small",
-  "text-embedding-3-large",
-  "text-embedding-ada-002",
-];
-
-const fragmentModels = [
-  "text-embedding-3-small",
-  "text-embedding-3-large",
-  "text-embedding-ada-002",
-];
-
 const labelClass =
   "uppercase tracking-[0.32px] text-[12px] flex items-center gap-2";
 
 export default function CustomizeStep({ onNext }: CustomizeStepProps) {
   const [apiKey, setApiKey] = useState("");
-  const [embeddingModel, setEmbeddingModel] = useState(embeddingModels[0]);
-  const [fragmentModel, setFragmentModel] = useState(fragmentModels[0]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -169,67 +134,6 @@ export default function CustomizeStep({ onNext }: CustomizeStepProps) {
             {error}
           </p>
         )}
-      </div>
-
-      <div
-        className="my-7 w-full"
-        style={{ height: 1, backgroundColor: "var(--card-border)" }}
-      />
-
-      <div className="flex w-full flex-col gap-1.5">
-        <Label
-          htmlFor="onboarding-embedding-model"
-          className={labelClass}
-          style={{ color: "var(--helper-text)" }}
-        >
-          Embedding Model
-        </Label>
-        <div className="relative w-full">
-          <select
-            id="onboarding-embedding-model"
-            value={embeddingModel}
-            onChange={(e) => setEmbeddingModel(e.target.value)}
-            className="flex h-8 w-full appearance-none items-center rounded-lg border border-input bg-transparent px-2.5 pr-10 text-sm outline-none cursor-pointer focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            style={{ color: "var(--heading-color)" }}
-          >
-            {embeddingModels.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-            <ChevronDownIcon />
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6 flex w-full flex-col gap-1.5">
-        <Label
-          htmlFor="onboarding-fragment-model"
-          className={labelClass}
-          style={{ color: "var(--helper-text)" }}
-        >
-          Fragment Processing Model
-        </Label>
-        <div className="relative w-full">
-          <select
-            id="onboarding-fragment-model"
-            value={fragmentModel}
-            onChange={(e) => setFragmentModel(e.target.value)}
-            className="flex h-8 w-full appearance-none items-center rounded-lg border border-input bg-transparent px-2.5 pr-10 text-sm outline-none cursor-pointer focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            style={{ color: "var(--heading-color)" }}
-          >
-            {fragmentModels.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-            <ChevronDownIcon />
-          </div>
-        </div>
       </div>
 
       <ActionButton
