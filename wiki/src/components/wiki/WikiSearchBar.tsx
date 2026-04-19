@@ -28,7 +28,7 @@ export default function WikiSearchBar({
   value,
   onChange,
   onSubmit,
-  placeholder = "Who is the president?",
+  placeholder = "What are you looking for?",
   embedded = false,
   compact = false,
   layout = "inline",
@@ -44,6 +44,7 @@ export default function WikiSearchBar({
   /** `stacked` = ROBIN home: input on top, send button bottom-right (node 217:35530) */
   layout?: "inline" | "stacked";
 }) {
+  const hasValue = value.length > 0;
   const sendBtn = (
     <button
       type="submit"
@@ -57,11 +58,14 @@ export default function WikiSearchBar({
         padding: layout === "stacked" ? 4 : compact ? 3 : 4,
         border: "none",
         borderRadius: 80,
-        background: "var(--wiki-chat-send-bg)",
+        background: hasValue
+          ? "rgba(0, 0, 0, 0.12)"
+          : "var(--wiki-chat-send-bg)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         cursor: "pointer",
+        transition: "background-color 150ms ease",
       }}
     >
       <SendArrowIcon size={layout === "stacked" ? 16 : compact ? 14 : 16} />
@@ -77,7 +81,8 @@ export default function WikiSearchBar({
           onSubmit();
         }}
       >
-        <div
+        <label
+          className="border border-[#e5e7ea] focus-within:border-[#c8cdd2] transition-colors"
           style={{
             width: "100%",
             maxWidth: 591,
@@ -91,6 +96,7 @@ export default function WikiSearchBar({
             gap: 12,
             justifyContent: "center",
             overflow: "hidden",
+            cursor: "text",
           }}
         >
           <div
@@ -132,7 +138,7 @@ export default function WikiSearchBar({
           >
             {sendBtn}
           </div>
-        </div>
+        </label>
       </form>
     );
   }
