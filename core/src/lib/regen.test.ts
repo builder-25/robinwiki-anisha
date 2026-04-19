@@ -1,0 +1,353 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// ── LLM capture ───────────────────────────────────────────────────────────
+// fakeCallLlm records (system, user) pairs and returns a fixed markdown string.
+// Tests assert against llmCalls[i].system / .user to prove which override the
+// pipeline actually took.
+const llmCalls: Array<{ system: string; user: string }> = []
+const fakeCallLlm = vi.fn(async (system: string, user: string) => {
+  llmCalls.push({ system, user })
+  return '# Fake regenerated markdown'
+})
+
+vi.mock('@robin/agent', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@robin/agent')>()
+  return {
+    ...original,
+    createIngestAgents: vi.fn(() => ({
+      wikiClassifier: {},
+      fragmenter: {},
+      entityExtractor: {},
+      fragScorer: {},
+    })),
+    createStringCaller: vi.fn(() => fakeCallLlm),
+    embedText: vi.fn(async () => null),
+  }
+})
+
+vi.mock('./openrouter-config.js', () => ({
+  loadOpenRouterConfig: vi.fn(async () => ({
+    apiKey: 'test-key',
+    models: {
+      extraction: 'test/model',
+      classification: 'test/model',
+      wikiGeneration: 'test/model',
+      embedding: 'test/model',
+    },
+  })),
+}))
+
+vi.mock('../db/audit.js', () => ({
+  emitAuditEvent: vi.fn().mockResolvedValue(undefined),
+}))
+
+// ── DB mock ───────────────────────────────────────────────────────────────
+// Each test calls stageDbResponses([...]) to queue the responses that terminal
+// awaits (.where(), .orderBy().limit(), .groupBy()) will pop in order.
+// Updates and inserts are recorded for inspection but do NOT pop the queue.
+const dbResponseQueue: unknown[][] = []
+const dbUpdates: Array<Record<string, unknown>> = []
+const dbInserts: Array<Record<string, unknown>> = []
+
+function stageDbResponses(responses: unknown[][]) {
+  dbResponseQueue.length = 0
+  dbResponseQueue.push(...responses)
+}
+
+function popResponse(): unknown[] {
+  // If the suite under-stages, we return [] instead of throwing — it keeps the
+  // happy path working while making mis-staged tests fail via assertion mismatch
+  // rather than a cryptic TypeError.
+  return dbResponseQueue.shift() ?? []
+}
+
+vi.mock('../db/client.js', () => {
+  function selectChain() {
+    return {
+      from: () => ({
+        where: (..._args: unknown[]) => {
+          // .where() is thenable — await it or chain .orderBy()/.groupBy()
+          let deferred: Promise<unknown[]> | null = null
+          const ensureDeferred = () => {
+            if (!deferred) deferred = Promise.resolve(popResponse())
+            return deferred
+          }
+          return {
+            // Terminal awaits: the test queue pops one entry.
+            then: (onFulfilled: (v: unknown[]) => unknown, onRejected?: (r: unknown) => unknown) =>
+              ensureDeferred().then(onFulfilled, onRejected),
+            orderBy: () => ({
+              limit: async () => popResponse(),
+            }),
+            groupBy: () => ({
+              // groupBy is thenable on its own in drizzle chains — pop here too.
+              then: (onFulfilled: (v: unknown[]) => unknown) =>
+                Promise.resolve(popResponse()).then(onFulfilled),
+            }),
+          }
+        },
+      }),
+    }
+  }
+  const fakeDb = {
+    select: (..._args: unknown[]) => selectChain(),
+    update: () => ({
+      set: (data: Record<string, unknown>) => ({
+        where: async () => {
+          dbUpdates.push(data)
+        },
+      }),
+    }),
+    insert: () => ({
+      values: async (data: Record<string, unknown>) => {
+        dbInserts.push(data)
+      },
+    }),
+  }
+  return { db: fakeDb }
+})
+
+vi.mock('../db/schema.js', () => ({
+  wikis: {
+    lookupKey: 'wikis.lookupKey',
+    type: 'wikis.type',
+    prompt: 'wikis.prompt',
+    slug: 'wikis.slug',
+    content: 'wikis.content',
+    deletedAt: 'wikis.deletedAt',
+  },
+  wikiTypes: {
+    slug: 'wikiTypes.slug',
+    prompt: 'wikiTypes.prompt',
+    userModified: 'wikiTypes.userModified',
+  },
+  edges: {
+    srcId: 'edges.srcId',
+    dstId: 'edges.dstId',
+    edgeType: 'edges.edgeType',
+    deletedAt: 'edges.deletedAt',
+  },
+  fragments: {
+    lookupKey: 'fragments.lookupKey',
+    title: 'fragments.title',
+    content: 'fragments.content',
+    deletedAt: 'fragments.deletedAt',
+  },
+  edits: {
+    objectType: 'edits.objectType',
+    objectId: 'edits.objectId',
+    source: 'edits.source',
+    timestamp: 'edits.timestamp',
+    content: 'edits.content',
+  },
+}))
+
+// ── Import under test (after mocks) ───────────────────────────────────────
+
+const { regenerateWiki } = await import('./regen.js')
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function baseWiki(overrides: Record<string, unknown> = {}) {
+  return {
+    lookupKey: 'wiki-key-1',
+    name: 'Test Wiki',
+    type: 'log',
+    slug: 'test-wiki',
+    content: 'previous content',
+    prompt: null,
+    deletedAt: null,
+    ...overrides,
+  }
+}
+
+// Query order consumed by regenerateWiki when fragmentKeys=[], no [[slug]] refs
+// in wiki.content, no wiki.prompt override:
+//   1. wikis select (by lookupKey)
+//   2. edges select (FRAGMENT_IN_WIKI dst=wikiKey)  → empty → fragmentKeys=[]
+//      [fragments select is SKIPPED because fragmentKeys.length === 0]
+//   3. edits select (orderBy+limit)
+//      [shared-fragment edges SKIPPED because fragmentKeys.length === 0]
+//      [slug-ref wikis SKIPPED because content has no [[slug]] matches]
+//      [linked wikis SKIPPED because cappedKeys.length === 0]
+//   4. wikiTypes select (only when wiki.prompt is falsy/whitespace)
+
+// ── Tests ─────────────────────────────────────────────────────────────────
+
+describe('regenerateWiki — override hierarchy integration', () => {
+  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+  beforeEach(() => {
+    llmCalls.length = 0
+    dbUpdates.length = 0
+    dbInserts.length = 0
+    dbResponseQueue.length = 0
+    warnSpy.mockClear()
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('uses disk default when wiki.prompt is empty and no userModified wiki_type row exists', async () => {
+    stageDbResponses([
+      [baseWiki()], // 1. wikis select
+      [],           // 2. fragment edges → empty
+      [],           // 3. user edits → empty
+      [],           // 4. wikiTypes select → no userModified row
+    ])
+
+    const result = await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+
+    expect(result).toBeDefined()
+    expect(llmCalls).toHaveLength(1)
+    // log.yaml system_message identifies Quill as a changelog author.
+    expect(llmCalls[0].system).toContain('Quill')
+    expect(llmCalls[0].system).toContain('changelog author')
+    // Template render includes the wiki title and the canonical DOCUMENT STRUCTURE marker.
+    expect(llmCalls[0].user).toContain('Test Wiki')
+    expect(llmCalls[0].user).toContain('DOCUMENT STRUCTURE')
+  })
+
+  it('short-circuits type-level lookup and swaps only system_message when wiki.prompt is set', async () => {
+    stageDbResponses([
+      [baseWiki({ prompt: 'You are a pirate poet, yarrr.' })], // 1. wikis select
+      [],                                                        // 2. fragment edges
+      [],                                                        // 3. user edits
+      // wikiTypes select is NEVER reached because wiki.prompt short-circuits.
+    ])
+
+    await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+
+    expect(llmCalls).toHaveLength(1)
+    // System message was REPLACED entirely — no Quill residue.
+    expect(llmCalls[0].system).toBe('You are a pirate poet, yarrr.')
+    expect(llmCalls[0].system).not.toContain('Quill')
+    // Template (user) is still the disk default — title + DOCUMENT STRUCTURE intact.
+    expect(llmCalls[0].user).toContain('Test Wiki')
+    expect(llmCalls[0].user).toContain('DOCUMENT STRUCTURE')
+  })
+
+  it('honors a user-customized wiki_type YAML blob for both system_message and template', async () => {
+    const customYaml = `name: CustomLog
+version: 7
+category: generation
+task: thread_wiki_log
+description: custom log variant
+temperature: 0.5
+system_message: "CUSTOM_SYSTEM_MARKER — you are a custom log author."
+template: |
+  CUSTOM_TEMPLATE_MARKER
+  Title: {{title}}
+  Count: {{count}}
+input_variables:
+  - name: fragments
+    description: fragment content
+    required: true
+  - name: title
+    description: title
+    required: true
+  - name: date
+    description: current date
+    required: false
+  - name: count
+    description: count
+    required: true
+`
+
+    stageDbResponses([
+      [baseWiki()],              // 1. wikis select
+      [],                        // 2. fragment edges
+      [],                        // 3. user edits
+      [{ prompt: customYaml }],  // 4. wikiTypes select → userModified row
+    ])
+
+    await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+
+    expect(llmCalls).toHaveLength(1)
+    // Custom YAML fully drives system + template.
+    expect(llmCalls[0].system).toContain('CUSTOM_SYSTEM_MARKER')
+    expect(llmCalls[0].system).not.toContain('Quill')
+    expect(llmCalls[0].user).toContain('CUSTOM_TEMPLATE_MARKER')
+    expect(llmCalls[0].user).toContain('Title: Test Wiki')
+    expect(llmCalls[0].user).toContain('Count: 0')
+    expect(llmCalls[0].user).not.toContain('DOCUMENT STRUCTURE')
+  })
+
+  it('falls back to disk default (does NOT throw) when the stored YAML blob is syntactically malformed', async () => {
+    const corrupt = 'not: : : valid yaml ][['
+
+    stageDbResponses([
+      [baseWiki()],           // 1. wikis select
+      [],                     // 2. fragment edges
+      [],                     // 3. user edits
+      [{ prompt: corrupt }],  // 4. wikiTypes select → corrupt blob
+    ])
+
+    await expect(
+      regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+    ).resolves.toBeDefined()
+
+    expect(llmCalls).toHaveLength(1)
+    // Disk default took over — system reverts to Quill, not the corrupt row.
+    expect(llmCalls[0].system).toContain('Quill')
+    expect(llmCalls[0].system).not.toContain('CUSTOM_SYSTEM_MARKER')
+    expect(llmCalls[0].user).toContain('DOCUMENT STRUCTURE')
+  })
+
+  it('falls back to disk default when the stored YAML blob fails PromptSpec schema validation', async () => {
+    // Valid YAML syntax but missing required PromptSpec fields (system_message, template, ...).
+    const schemaInvalid = `name: Incomplete
+version: 1
+category: generation
+task: x
+description: x
+temperature: 0.3
+`
+
+    stageDbResponses([
+      [baseWiki()],
+      [],
+      [],
+      [{ prompt: schemaInvalid }],
+    ])
+
+    await expect(
+      regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+    ).resolves.toBeDefined()
+
+    expect(llmCalls).toHaveLength(1)
+    expect(llmCalls[0].system).toContain('Quill')
+  })
+
+  it('trims trailing whitespace when swapping system_message from wiki.prompt', async () => {
+    stageDbResponses([
+      [baseWiki({ prompt: 'pirate voice\n\n' })],
+      [],
+      [],
+    ])
+
+    await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+
+    expect(llmCalls).toHaveLength(1)
+    expect(llmCalls[0].system).toBe('pirate voice')
+  })
+
+  it('treats whitespace-only wiki.prompt as "no override" and falls through to disk default', async () => {
+    // wiki.prompt is non-empty string but .trim() is empty — the regen.ts guard
+    // must treat this as "no override" and consult wikiTypes instead.
+    stageDbResponses([
+      [baseWiki({ prompt: '   \n\t  ' })],
+      [],
+      [],
+      [], // wikiTypes select reached because whitespace-only prompt was ignored
+    ])
+
+    await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+
+    expect(llmCalls).toHaveLength(1)
+    // Whitespace was NOT used as the system message — disk default kicked in.
+    expect(llmCalls[0].system).toContain('Quill')
+    expect(llmCalls[0].system).not.toBe('')
+  })
+})
