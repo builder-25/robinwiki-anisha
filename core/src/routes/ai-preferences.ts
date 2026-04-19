@@ -1,54 +1,33 @@
-import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
-import { sessionMiddleware } from '../middleware/session.js'
+import { Hono } from 'hono'
 import { getConfig, setConfig } from '../lib/config.js'
 import { validationHook } from '../lib/validation.js'
-import { okResponseSchema } from '../schemas/base.schema.js'
+import { sessionMiddleware } from '../middleware/session.js'
 import {
-  saveAiPreferencesBodySchema,
   aiPreferencesResponseSchema,
-  savePromptsBodySchema,
   promptsResponseSchema,
+  savePromptsBodySchema,
 } from '../schemas/ai-preferences.schema.js'
 
 const aiPreferencesRouter = new Hono()
 aiPreferencesRouter.use('*', sessionMiddleware)
 
-// POST /preferences/ai -- save OpenRouter API key (encrypted)
-aiPreferencesRouter.post(
-  '/preferences/ai',
-  zValidator('json', saveAiPreferencesBodySchema, validationHook),
-  async (c) => {
-    const userId = c.get('userId') as string
-    const body = c.req.valid('json')
-
-    await setConfig({
-      scope: 'user',
-      userId,
-      kind: 'llm_key',
-      key: 'openrouter',
-      value: body.openRouterKey,
-      encrypted: true,
-    })
-
-    return c.json(okResponseSchema.parse({ ok: true }))
-  },
-)
-
 // GET /preferences/ai -- return key-exists status and model preference
 aiPreferencesRouter.get('/preferences/ai', async (c) => {
   const userId = c.get('userId') as string
 
-  const [rawKey, modelPref] = await Promise.all([
-    getConfig({ scope: 'user', userId, kind: 'llm_key', key: 'openrouter' }),
-    getConfig({ scope: 'user', userId, kind: 'model_preference', key: 'default' }),
-  ])
+  const modelPref = await getConfig({
+    scope: 'user',
+    userId,
+    kind: 'model_preference',
+    key: 'default',
+  })
 
   return c.json(
     aiPreferencesResponseSchema.parse({
-      hasOpenRouterKey: rawKey != null,
+      hasOpenRouterKey: !!process.env.OPENROUTER_API_KEY,
       modelPreference: typeof modelPref === 'string' ? modelPref : null,
-    }),
+    })
   )
 })
 
@@ -69,8 +48,8 @@ aiPreferencesRouter.put(
       encrypted: false,
     })
 
-    return c.json(okResponseSchema.parse({ ok: true }))
-  },
+    return c.json({ ok: true })
+  }
 )
 
 // GET /prompts -- retrieve custom prompt overrides
@@ -90,7 +69,7 @@ aiPreferencesRouter.get('/prompts', async (c) => {
         extraction: null,
         wikiClassify: null,
         wikiGeneration: null,
-      }),
+      })
     )
   }
 
@@ -100,7 +79,7 @@ aiPreferencesRouter.get('/prompts', async (c) => {
       extraction: typeof obj.extraction === 'string' ? obj.extraction : null,
       wikiClassify: typeof obj.wikiClassify === 'string' ? obj.wikiClassify : null,
       wikiGeneration: typeof obj.wikiGeneration === 'string' ? obj.wikiGeneration : null,
-    }),
+    })
   )
 })
 

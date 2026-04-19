@@ -21,8 +21,6 @@ type Scope = 'system' | 'user'
 
 /** Registered env-var fallbacks by (kind, key) tuple. */
 const ENV_FALLBACKS: Record<string, string | undefined> = {
-  // LLM API keys
-  'llm_key:openrouter': process.env.OPENROUTER_API_KEY,
   // Preferred chat model for a given pipeline stage
   'model_preference:default': process.env.DEFAULT_MODEL,
   'model_preference:extraction': process.env.EXTRACTION_MODEL,

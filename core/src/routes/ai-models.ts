@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
-import { sessionMiddleware } from '../middleware/session.js'
-import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
 import { logger } from '../lib/logger.js'
+import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
+import { sessionMiddleware } from '../middleware/session.js'
 import type { AiModel } from '../schemas/ai-models.schema.js'
 
 const log = logger.child({ component: 'ai-models' })

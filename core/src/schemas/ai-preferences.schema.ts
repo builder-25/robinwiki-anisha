@@ -1,10 +1,5 @@
 import { z } from 'zod'
 
-// POST /users/preferences/ai body
-export const saveAiPreferencesBodySchema = z.object({
-  openRouterKey: z.string().min(1),
-})
-
 // GET /users/preferences/ai response
 export const aiPreferencesResponseSchema = z.object({
   hasOpenRouterKey: z.boolean(),
