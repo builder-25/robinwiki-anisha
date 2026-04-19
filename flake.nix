@@ -15,6 +15,7 @@
       startScript = pkgs.writeShellScriptBin "start" ''
         set -euo pipefail
         ROBIN_DEV_DIR="''${ROBIN_DEV_DIR:-.dev}"
+        PROJECT_ROOT="''${PROJECT_ROOT:-$PWD}"
 
         PG_DATA="$ROBIN_DEV_DIR/postgres/data"
         PG_SOCKET="$ROBIN_DEV_DIR/postgres/socket"
@@ -25,16 +26,77 @@
         REDIS_LOG="$ROBIN_DEV_DIR/redis/redis.log"
         REDIS_PID="$ROBIN_DEV_DIR/redis/redis.pid"
 
-        mkdir -p "$PG_DATA" "$PG_SOCKET" "$REDIS_DATA"
+        CORE_PID="$ROBIN_DEV_DIR/core/core.pid"
+        CORE_LOG="$ROBIN_DEV_DIR/core/core.log"
+
+        WIKI_PID="$ROBIN_DEV_DIR/wiki/wiki.pid"
+        WIKI_LOG="$ROBIN_DEV_DIR/wiki/wiki.log"
+
+        mkdir -p "$PG_DATA" "$PG_SOCKET" "$REDIS_DATA" \
+                 "$ROBIN_DEV_DIR/core" "$ROBIN_DEV_DIR/wiki"
+
+        # ss-based port probe (lsof is unreliable for detecting listeners on this host).
+        port_holder_pid() {
+          ${pkgs.iproute2}/bin/ss -Htlnp "sport = :$1" 2>/dev/null \
+            | grep -oP 'pid=\K[0-9]+' | head -1 || true
+        }
+
+        port_is_bound() {
+          [ -n "$(${pkgs.iproute2}/bin/ss -Htln "sport = :$1" 2>/dev/null)" ]
+        }
+
+        # Fail loud if a port is already held by a foreign process.
+        preflight_port() {
+          local label=$1 port=$2
+          local holder
+          holder=$(port_holder_pid "$port")
+          [ -z "$holder" ] && return 0
+          local holder_cmd
+          holder_cmd=$(ps -p "$holder" -o cmd= 2>/dev/null || echo unknown)
+          echo "ERROR: $label port :$port already held by pid $holder"
+          echo "  $holder_cmd"
+          echo "  free the port first (or 'kill $holder') and re-run start"
+          return 1
+        }
+
+        # Verify a spawned service: tracked pid stays alive AND port binds.
+        # On failure: tail log, remove pid file, return non-zero (set -e exits).
+        verify_spawn() {
+          local label=$1 pidfile=$2 port=$3 logfile=$4 max=''${5:-15}
+          local pid
+          pid=$(cat "$pidfile" 2>/dev/null || echo "")
+          if [ -z "$pid" ]; then
+            echo "ERROR: $label did not write a pid file"
+            [ -f "$logfile" ] && tail -20 "$logfile" | sed "s#^#  $label log: #"
+            return 1
+          fi
+          local i
+          for i in $(seq 1 "$max"); do
+            if ! kill -0 "$pid" 2>/dev/null; then
+              echo "ERROR: $label process $pid exited before binding :$port"
+              [ -f "$logfile" ] && tail -20 "$logfile" | sed "s#^#  $label log: #"
+              rm -f "$pidfile"
+              return 1
+            fi
+            if port_is_bound "$port"; then
+              return 0
+            fi
+            sleep 1
+          done
+          echo "ERROR: $label did not bind :$port within ''${max}s"
+          [ -f "$logfile" ] && tail -20 "$logfile" | sed "s#^#  $label log: #"
+          kill "$pid" 2>/dev/null || true
+          rm -f "$pidfile"
+          return 1
+        }
 
         # ── PostgreSQL ──────────────────────────────────────────
-        pg_running=false
         if [ -f "$PG_PID" ] && kill -0 "$(cat "$PG_PID")" 2>/dev/null; then
-          pg_running=true
           echo "postgres: already running (pid $(cat "$PG_PID"))"
-        fi
+        else
+          rm -f "$PG_PID"
+          preflight_port "postgres" 5432
 
-        if [ "$pg_running" = false ]; then
           if [ ! -f "$PG_DATA/PG_VERSION" ]; then
             echo "postgres: initializing data directory..."
             ${pkgs.postgresql_16}/bin/initdb \
@@ -62,6 +124,7 @@ PGCONF
             -o "-k $PG_SOCKET"
 
           head -1 "$PG_DATA/postmaster.pid" > "$PG_PID"
+          verify_spawn "postgres" "$PG_PID" 5432 "$PG_LOG" 5
 
           if ! ${pkgs.postgresql_16}/bin/psql -h 127.0.0.1 -U postgres -lqt 2>/dev/null | grep -qw robinwiki; then
             echo "postgres: creating database robinwiki..."
@@ -72,13 +135,14 @@ PGCONF
         fi
 
         # ── Redis ───────────────────────────────────────────────
-        redis_running=false
+        # Redis conflicts are tolerated — if someone else owns :6379, we just reuse it.
         if [ -f "$REDIS_PID" ] && kill -0 "$(cat "$REDIS_PID")" 2>/dev/null; then
-          redis_running=true
           echo "redis:    already running (pid $(cat "$REDIS_PID"))"
-        fi
-
-        if [ "$redis_running" = false ]; then
+        elif ${pkgs.redis}/bin/redis-cli -h 127.0.0.1 -p 6379 ping 2>/dev/null | grep -q PONG; then
+          echo "redis:    already responding on :6379 (external, reusing)"
+          rm -f "$REDIS_PID"
+        else
+          rm -f "$REDIS_PID"
           echo "redis:    starting..."
           ${pkgs.redis}/bin/redis-server \
             --daemonize yes \
@@ -90,60 +154,57 @@ PGCONF
             --bind 127.0.0.1 \
             --port 6379
 
-          for i in $(seq 1 10); do
+          for i in 1 2 3 4 5; do
             [ -f "$REDIS_PID" ] && break
             sleep 0.2
           done
 
-          if [ -f "$REDIS_PID" ]; then
+          if [ -f "$REDIS_PID" ] && kill -0 "$(cat "$REDIS_PID")" 2>/dev/null; then
             echo "redis:    ready (pid $(cat "$REDIS_PID"))"
           else
-            echo "redis:    started but PID file not found"
+            echo "redis:    spawn failed (best-effort; continuing)"
+            rm -f "$REDIS_PID"
           fi
         fi
 
         # ── Core (Robin API server) ────────────────────────────
-        CORE_PID="$ROBIN_DEV_DIR/core/core.pid"
-        CORE_LOG="$ROBIN_DEV_DIR/core/core.log"
-        mkdir -p "$ROBIN_DEV_DIR/core"
         if [ -f "$CORE_PID" ] && kill -0 "$(cat "$CORE_PID")" 2>/dev/null; then
           echo "core:     already running (pid $(cat "$CORE_PID"))"
         else
+          rm -f "$CORE_PID"
+          preflight_port "core" 3000
+
           echo "core:     starting..."
           (cd "$PROJECT_ROOT" && pnpm --filter @robin/core dev >> "$CORE_LOG" 2>&1) &
           echo $! > "$CORE_PID"
-          for i in $(seq 1 30); do
-            if ${pkgs.curl}/bin/curl -sf http://localhost:3000/health > /dev/null 2>&1; then
-              echo "core:     ready (pid $(cat "$CORE_PID"))"
-              break
-            fi
-            if [ "$i" = "30" ]; then
-              echo "core:     started (pid $(cat "$CORE_PID")) but health check not responding"
-            fi
-            sleep 1
-          done
+          verify_spawn "core" "$CORE_PID" 3000 "$CORE_LOG" 30
+
+          if ! ${pkgs.curl}/bin/curl -sf http://localhost:3000/health > /dev/null 2>&1; then
+            echo "ERROR: core bound :3000 but /health is not returning 2xx"
+            tail -20 "$CORE_LOG" | sed "s#^#  core log: #"
+            exit 1
+          fi
+          echo "core:     ready (pid $(cat "$CORE_PID"))"
         fi
 
         # ── Wiki (Next.js frontend) ────────────────────────────
-        WIKI_PID="$ROBIN_DEV_DIR/wiki/wiki.pid"
-        WIKI_LOG="$ROBIN_DEV_DIR/wiki/wiki.log"
-        mkdir -p "$ROBIN_DEV_DIR/wiki"
         if [ -f "$WIKI_PID" ] && kill -0 "$(cat "$WIKI_PID")" 2>/dev/null; then
           echo "wiki:     already running (pid $(cat "$WIKI_PID"))"
         else
+          rm -f "$WIKI_PID"
+          preflight_port "wiki" 8080
+
           echo "wiki:     starting..."
           (cd "$PROJECT_ROOT" && PORT=8080 pnpm --filter @robin/wiki dev >> "$WIKI_LOG" 2>&1) &
           echo $! > "$WIKI_PID"
-          for i in $(seq 1 30); do
-            if ${pkgs.curl}/bin/curl -sf http://localhost:8080 > /dev/null 2>&1; then
-              echo "wiki:     ready (pid $(cat "$WIKI_PID"))"
-              break
-            fi
-            if [ "$i" = "30" ]; then
-              echo "wiki:     started (pid $(cat "$WIKI_PID")) but not responding"
-            fi
-            sleep 1
-          done
+          verify_spawn "wiki" "$WIKI_PID" 8080 "$WIKI_LOG" 30
+
+          if ! ${pkgs.curl}/bin/curl -sf http://localhost:8080 > /dev/null 2>&1; then
+            echo "ERROR: wiki bound :8080 but / is not returning 2xx"
+            tail -20 "$WIKI_LOG" | sed "s#^#  wiki log: #"
+            exit 1
+          fi
+          echo "wiki:     ready (pid $(cat "$WIKI_PID"))"
         fi
 
         echo ""
@@ -162,19 +223,24 @@ PGCONF
         CORE_PID="$ROBIN_DEV_DIR/core/core.pid"
         WIKI_PID="$ROBIN_DEV_DIR/wiki/wiki.pid"
 
+        port_pids() {
+          ${pkgs.iproute2}/bin/ss -Htlnp "sport = :$1" 2>/dev/null \
+            | grep -oP 'pid=\K[0-9]+' | sort -u || true
+        }
+
         stop_port() {
           local label=$1 port=$2 pidfile=$3
           local pids
-          pids=$(${pkgs.lsof}/bin/lsof -ti:"$port" 2>/dev/null) || true
+          pids=$(port_pids "$port") || true
           if [ -n "$pids" ]; then
             echo "$label stopping..."
             echo "$pids" | xargs kill 2>/dev/null || true
             for i in $(seq 1 15); do
-              pids=$(${pkgs.lsof}/bin/lsof -ti:"$port" 2>/dev/null) || true
+              pids=$(port_pids "$port") || true
               [ -z "$pids" ] && break
               sleep 0.2
             done
-            pids=$(${pkgs.lsof}/bin/lsof -ti:"$port" 2>/dev/null) || true
+            pids=$(port_pids "$port") || true
             if [ -n "$pids" ]; then
               echo "$pids" | xargs kill -9 2>/dev/null || true
             fi
@@ -310,6 +376,7 @@ PGCONF
             pkgs.curl
             pkgs.jq
             pkgs.lsof
+            pkgs.iproute2
 
             # Dev service management
             startScript
