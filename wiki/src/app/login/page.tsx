@@ -90,14 +90,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p style={{ fontSize: 14, textAlign: 'center', marginTop: 16, color: '#666' }}>
-          <a
-            href="/recover"
-            style={{ color: '#111', textDecoration: 'underline', fontSize: 14 }}
-          >
-            Forgot password?
-          </a>
-        </p>
       </div>
     </div>
   )

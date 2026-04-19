@@ -56,7 +56,7 @@ export default function RecoverPage() {
         </h1>
 
         <p style={{ fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 24 }}>
-          Enter the server secret key (BETTER_AUTH_SECRET) to reset your password to the current INITIAL_PASSWORD value.
+          Enter the server secret key to reset your password to the current initial password value.
         </p>
 
         {success ? (

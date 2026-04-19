@@ -3,6 +3,7 @@ import type { NextConfig } from 'next'
 const ROBIN_SERVER = process.env.NEXT_PUBLIC_ROBIN_API ?? 'http://localhost:3000'
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ['app.tensorkit.net'],
   async rewrites() {
     return [
       // Password recovery route (core: /auth/recover)
