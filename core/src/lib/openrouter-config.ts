@@ -12,7 +12,8 @@ export const SAFE_EMBEDDING_MODELS = [
   'qwen/qwen3-embedding-8b',       // MRL truncated to 1536
 ] as const satisfies readonly string[]
 
-const MODEL_DEFAULTS: Record<string, string> = {
+/** Default model for each pipeline role (DB key → model ID). */
+export const MODEL_DEFAULTS: Record<string, string> = {
   extraction: DEFAULT_MODEL,
   classification: DEFAULT_MODEL,
   wiki_generation: DEFAULT_MODEL,

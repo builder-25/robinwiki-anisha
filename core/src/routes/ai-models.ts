@@ -88,4 +88,10 @@ aiModelsRouter.get('/models', async (c) => {
   }
 })
 
+/** Returns the cached model list (or null if never fetched). */
+export function getCachedModelIds(): Set<string> | null {
+  if (!cachedModels) return null
+  return new Set(cachedModels.map((m) => m.id))
+}
+
 export { aiModelsRouter as aiModelsRoutes }
