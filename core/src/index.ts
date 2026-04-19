@@ -29,6 +29,8 @@ import { bullBoardApp } from './routes/bull-board.js'
 import { adminRoutes } from './routes/admin.js'
 import { authRecoverRoutes } from './routes/auth-recover.js'
 import { checkOpenRouterKey } from './bootstrap/check-openrouter-key.js'
+import { runMigrations } from './bootstrap/run-migrations.js'
+import { seedWikiTypes } from './bootstrap/seed-wiki-types.js'
 import { loadMasterKey } from './lib/crypto.js'
 
 declare module 'hono' {
@@ -128,9 +130,23 @@ app.route('/ai', aiModelsRoutes)
 // Fail fast on missing MASTER_KEY before any crypto ops run
 loadMasterKey()
 
+// Apply pending migrations before any code touches the schema.
+// runMigrations is idempotent and safe to call on every boot.
+await runMigrations().catch((err) => {
+  logger.fatal({ err }, 'run-migrations failed — refusing to start')
+  process.exit(1)
+})
+
 // Warn loudly if the OpenRouter key is missing — non-fatal so non-ingest traffic still works
 await checkOpenRouterKey().catch((err) => {
   logger.error({ err }, 'check-openrouter-key failed')
+})
+
+// Seed wiki types from YAML on every boot (idempotent — insert / refresh / preserve).
+// Runs after migrations (needs based_on_version column) and before workers
+// (workers may read wiki_types rows when regenerating wikis).
+await seedWikiTypes().catch((err) => {
+  logger.error({ err }, 'seed-wiki-types failed — continuing startup')
 })
 
 // Single global worker — no per-user spawning under single-user M2

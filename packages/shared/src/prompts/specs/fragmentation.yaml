@@ -1,6 +1,7 @@
 name: ElfieTheFragmentor
 version: 4
 category: extraction
+system_only: true
 task: fragmentation
 description: Extracts atomic knowledge fragments from raw input.
 temperature: 0.2

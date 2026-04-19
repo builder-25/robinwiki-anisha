@@ -1,6 +1,7 @@
 name: ElfieTheExtractor
 version: 1
 category: extraction
+system_only: true
 task: people_extraction
 description: Extracts person mentions and identity signals from text.
 temperature: 0.0

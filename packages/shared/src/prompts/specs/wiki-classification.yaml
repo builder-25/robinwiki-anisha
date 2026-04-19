@@ -1,6 +1,7 @@
 name: MarcelTheClassifier
 version: 1
 category: classification
+system_only: true
 task: thread_classification
 description: Assigns a fragment to one or more relevant threads.
 temperature: 0.1

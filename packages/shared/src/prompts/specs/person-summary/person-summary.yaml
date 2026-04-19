@@ -1,6 +1,7 @@
 name: QuillTheWriter
 version: 1
 category: generation
+system_only: true
 task: person_summary
 description: Synthesizes a structured person summary from accumulated fragments.
 temperature: 0.3

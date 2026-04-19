@@ -1,6 +1,7 @@
 name: JudgeTheScorer
 version: 1
 category: scoring
+system_only: true
 task: thread_relevance
 description: Scores fragment-to-thread relevance on a calibrated 0-1 scale.
 temperature: 0.2

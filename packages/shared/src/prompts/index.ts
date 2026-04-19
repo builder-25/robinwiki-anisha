@@ -2,7 +2,7 @@
 export { PromptSpecSchema } from './schema.js'
 export type { PromptSpec } from './schema.js'
 export type { PromptResult } from './types.js'
-export { loadSpec, renderTemplate } from './loader.js'
+export { loadSpec, renderTemplate, parseSpecFromBlob } from './loader.js'
 
 // Model constants (stay in code per CONTEXT.md decision)
 export * from './models.js'
@@ -28,6 +28,7 @@ export * from './loaders/fragment-relevance.js'
 
 // Loader functions — parameterized
 export { loadWikiGenerationSpec } from './loaders/wiki-generation.js'
+export type { WikiGenerationOverride } from './loaders/wiki-generation.js'
 export { loadPersonSummarySpec } from './loaders/person-summary.js'
 export { personSummaryInputSchema } from './specs/person-summary/person-summary.schema.js'
 
