@@ -41,6 +41,7 @@ vi.mock('../db/schema.js', () => ({
     name: 'wikis.name',
     type: 'wikis.type',
     prompt: 'wikis.prompt',
+    content: 'wikis.content',
   },
   people: {
     lookupKey: 'people.lookup_key',
@@ -64,15 +65,8 @@ vi.mock('../db/schema.js', () => ({
     userId: 'thread_edits.user_id',
     type: 'thread_edits.type',
     content: 'thread_edits.content',
-  },
-}))
-
-const mockRead = vi.fn()
-const mockWrite = vi.fn()
-vi.mock('../gateway/client.js', () => ({
-  gatewayClient: {
-    read: (...args: unknown[]) => mockRead(...args),
-    write: (...args: unknown[]) => mockWrite(...args),
+    objectType: 'edits.object_type',
+    objectId: 'edits.object_id',
   },
 }))
 
@@ -96,6 +90,14 @@ vi.mock('../lib/logger.js', () => ({
       error: vi.fn(),
     }),
   },
+}))
+
+vi.mock('../db/audit.js', () => ({
+  emitAuditEvent: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../lib/id.js', () => ({
+  nanoid: () => 'mock-nanoid',
 }))
 
 import { contentRoutes } from '../routes/content.js'
@@ -135,19 +137,11 @@ describe('Content Write API (EDIT-02)', () => {
     vi.clearAllMocks()
   })
 
-  const existingContent = '---\nname: Original\ntype: log\n---\nOriginal body'
-
-  function setupDbAndGateway(type = 'wiki') {
+  function setupDb(type = 'wiki') {
     const selectChain = chainMock([
-      { lookupKey: 'key-123', repoPath: `${type}s/file.md`, deletedAt: null },
+      { lookupKey: 'key-123', deletedAt: null, content: 'existing content' },
     ])
     mockDbSelect.mockReturnValue(selectChain)
-    mockRead.mockResolvedValue({ content: existingContent })
-    mockWrite.mockResolvedValue({
-      path: `${type}s/file.md`,
-      commitHash: 'abc123',
-      timestamp: '2026-01-01',
-    })
     const uChain = updateChainMock()
     mockDbUpdate.mockReturnValue(uChain)
     const iChain = insertChainMock()
@@ -171,7 +165,7 @@ describe('Content Write API (EDIT-02)', () => {
       const selectChain = chainMock([])
       mockDbSelect.mockReturnValue(selectChain)
       const app = createApp()
-      const res = await app.request('/api/content/thread/key-123', {
+      const res = await app.request('/api/content/wiki/key-123', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ frontmatter: { name: 'test' }, body: 'body' }),
@@ -180,13 +174,13 @@ describe('Content Write API (EDIT-02)', () => {
     })
 
     it('validates frontmatter with type-specific Zod schema', async () => {
-      setupDbAndGateway()
+      setupDb()
       const app = createApp()
-      const res = await app.request('/api/content/thread/key-123', {
+      const res = await app.request('/api/content/wiki/key-123', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          frontmatter: { name: 'Updated Thread' },
+          frontmatter: { name: 'Updated Wiki' },
           body: 'New body',
         }),
       })
@@ -196,10 +190,9 @@ describe('Content Write API (EDIT-02)', () => {
     })
 
     it('returns field-level validation errors on failure', async () => {
-      setupDbAndGateway()
+      setupDb()
       const app = createApp()
-      // Missing required 'name' field
-      const res = await app.request('/api/content/thread/key-123', {
+      const res = await app.request('/api/content/wiki/key-123', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ frontmatter: {}, body: 'body' }),
@@ -210,83 +203,10 @@ describe('Content Write API (EDIT-02)', () => {
       expect(json.fields).toBeDefined()
     })
 
-    it('strips unknown/protected frontmatter fields', async () => {
-      setupDbAndGateway()
+    it('updates DB row after successful write', async () => {
+      setupDb()
       const app = createApp()
-      const res = await app.request('/api/content/thread/key-123', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          frontmatter: { name: 'Test', unknownField: 'should be stripped' },
-          body: 'body',
-        }),
-      })
-      expect(res.status).toBe(200)
-      // The write call should not include unknownField in frontmatter
-      expect(mockWrite).toHaveBeenCalled()
-      const writeCall = mockWrite.mock.calls[0][0]
-      expect(writeCall.content).not.toContain('unknownField')
-    })
-
-    it('ignores body field for entry type (read-only)', async () => {
-      setupDbAndGateway('entr')
-      // Re-setup for entry type
-      const selectChain = chainMock([
-        { lookupKey: 'key-123', repoPath: 'entries/file.md', deletedAt: null },
-      ])
-      mockDbSelect.mockReturnValue(selectChain)
-      mockRead.mockResolvedValue({
-        content: '---\ntitle: Original Entry\n---\nOriginal body',
-      })
-      const uChain = updateChainMock()
-      mockDbUpdate.mockReturnValue(uChain)
-
-      const app = createApp()
-      const res = await app.request('/api/content/entry/key-123', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          frontmatter: { title: 'Updated Entry' },
-          body: 'Should be ignored',
-        }),
-      })
-      expect(res.status).toBe(200)
-    })
-
-    it('resolves wiki-links and populates wikiLinks/brokenLinks in frontmatter', async () => {
-      setupDbAndGateway()
-      const app = createApp()
-      const res = await app.request('/api/content/thread/key-123', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          frontmatter: { name: 'Test' },
-          body: 'Check [[some-link]] here',
-        }),
-      })
-      expect(res.status).toBe(200)
-      // The write should have been called (wiki resolution happens internally)
-      expect(mockWrite).toHaveBeenCalled()
-      const writeCall = mockWrite.mock.calls[0][0]
-      // brokenLinks should contain 'some-link' since mock lookup returns null
-      expect(writeCall.content).toContain('brokenLinks')
-    })
-
-    it('writes assembled markdown to gateway with batch: true', async () => {
-      setupDbAndGateway()
-      const app = createApp()
-      await app.request('/api/content/thread/key-123', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frontmatter: { name: 'Test' }, body: 'body' }),
-      })
-      expect(mockWrite).toHaveBeenCalledWith(expect.objectContaining({ batch: true }))
-    })
-
-    it('updates DB row (title, tags, updatedAt) after successful write', async () => {
-      setupDbAndGateway()
-      const app = createApp()
-      await app.request('/api/content/thread/key-123', {
+      await app.request('/api/content/wiki/key-123', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -297,75 +217,10 @@ describe('Content Write API (EDIT-02)', () => {
       expect(mockDbUpdate).toHaveBeenCalled()
     })
 
-    it('marks parent wikis DIRTY when fragment is edited', async () => {
-      mockRead.mockResolvedValue({
-        content: '---\ntitle: Frag\ntags: []\n---\nFragment body',
-      })
-      mockWrite.mockResolvedValue({
-        path: 'fragments/file.md',
-        commitHash: 'abc',
-        timestamp: '2026-01-01',
-      })
-      const uChain = updateChainMock()
-      mockDbUpdate.mockReturnValue(uChain)
-      mockDbExecute.mockResolvedValue(undefined)
-
-      // For the edge lookup (second select call), return edges
-      let selectCallCount = 0
-      mockDbSelect.mockImplementation(() => {
-        selectCallCount++
-        if (selectCallCount === 1) {
-          // First select: DB row lookup (with .limit())
-          return chainMock([
-            {
-              lookupKey: 'frag-123',
-              repoPath: 'fragments/file.md',
-              deletedAt: null,
-            },
-          ])
-        }
-        // Second select: edge lookup for parent wikis (no .limit(), direct where result)
-        const edgeChain: Record<string, any> = {}
-        edgeChain.from = vi.fn().mockReturnValue(edgeChain)
-        edgeChain.where = vi.fn().mockResolvedValue([{ dstId: 'thread-abc' }])
-        edgeChain.limit = vi.fn().mockResolvedValue([{ dstId: 'thread-abc' }])
-        return edgeChain
-      })
-
-      const app = createApp()
-      const res = await app.request('/api/content/fragment/frag-123', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          frontmatter: { title: 'Updated Frag' },
-          body: 'new body',
-        }),
-      })
-      expect(res.status).toBe(200)
-      // Should have called execute for DIRTY update
-      expect(mockDbExecute).toHaveBeenCalled()
-    })
-
-    it('logs delta to thread_edits when thread body changes', async () => {
-      setupDbAndGateway()
-      const app = createApp()
-      const res = await app.request('/api/content/thread/key-123', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          frontmatter: { name: 'Test' },
-          body: 'Original body\nNew addition here',
-        }),
-      })
-      expect(res.status).toBe(200)
-      // Should have inserted into thread_edits
-      expect(mockDbInsert).toHaveBeenCalled()
-    })
-
     it('returns { ok: true } on success', async () => {
-      setupDbAndGateway()
+      setupDb()
       const app = createApp()
-      const res = await app.request('/api/content/thread/key-123', {
+      const res = await app.request('/api/content/wiki/key-123', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ frontmatter: { name: 'Test' }, body: 'body' }),
@@ -376,10 +231,9 @@ describe('Content Write API (EDIT-02)', () => {
     })
 
     it('requires authenticated session', async () => {
-      // Session middleware is mocked; verify it was applied
-      setupDbAndGateway()
+      setupDb()
       const app = createApp()
-      const res = await app.request('/api/content/thread/key-123', {
+      const res = await app.request('/api/content/wiki/key-123', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ frontmatter: { name: 'Test' }, body: 'body' }),

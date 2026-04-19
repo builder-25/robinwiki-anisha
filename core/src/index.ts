@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import './bootstrap/env.js'
 import { readFileSync } from 'node:fs'
 import { load as loadYaml } from 'js-yaml'
 import { Hono } from 'hono'
@@ -22,10 +23,6 @@ import { wikiTypesRoutes } from './routes/wiki-types.js'
 import { auditRoutes } from './routes/audit.js'
 import { aiPreferencesRoutes } from './routes/ai-preferences.js'
 import { publishedRoutes } from './routes/published.js'
-// M2 dormant: internalRoutes is the git-sync webhook, preserved verbatim in
-// src/routes/internal.ts for M3/M4 refinement. Gateway is gone in M2 so the
-// route is not mounted. Restore when sync-back lands.
-// import { internalRoutes } from './routes/internal.js'
 import { startWorkers } from './queue/worker.js'
 import { bullBoardApp } from './routes/bull-board.js'
 import { adminRoutes } from './routes/admin.js'

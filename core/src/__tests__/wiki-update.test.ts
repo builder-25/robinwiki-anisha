@@ -30,15 +30,6 @@ vi.mock('../db/schema.js', () => ({
   },
 }))
 
-const mockRead = vi.fn()
-const mockWrite = vi.fn()
-vi.mock('../gateway/client.js', () => ({
-  gatewayClient: {
-    read: (...args: unknown[]) => mockRead(...args),
-    write: (...args: unknown[]) => mockWrite(...args),
-  },
-}))
-
 vi.mock('../queue/producer.js', () => ({
   producer: { enqueueRegenJob: vi.fn() },
 }))
@@ -59,6 +50,10 @@ vi.mock('../lib/logger.js', () => ({
       error: vi.fn(),
     }),
   },
+}))
+
+vi.mock('../db/audit.js', () => ({
+  emitAuditEvent: vi.fn().mockResolvedValue(undefined),
 }))
 
 import { wikisRoutes } from '../routes/wikis.js'
@@ -108,16 +103,12 @@ function updateChainMock(returning: unknown[]) {
 
 // ── Tests ────────────────────────────────────────────────────────────────
 
-describe('PUT /wikis/:id — git sync', () => {
+describe('PUT /wikis/:id — DB update', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRead.mockResolvedValue({
-      content: '---\ntype: "log"\nstate: RESOLVED\nname: "Engineering Log"\nprompt: "Summarize engineering work"\nfragmentKeys: []\nfragmentCount: 0\n---\nWiki body content here.',
-    })
-    mockWrite.mockResolvedValue({ path: 'ok', commitHash: 'abc', timestamp: '2026-01-01' })
   })
 
-  it('syncs name change to git frontmatter', async () => {
+  it('syncs name change to DB', async () => {
     const existing = makeThread()
     const updated = makeThread({ name: 'New Name', slug: 'new-name', updatedAt: new Date() })
 
@@ -132,16 +123,12 @@ describe('PUT /wikis/:id — git sync', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(mockWrite).toHaveBeenCalledTimes(1)
-    const writeCall = mockWrite.mock.calls[0][0]
-    expect(writeCall.content).toContain('name: New Name')
-    expect(writeCall.content).toContain('Wiki body content here.')
-    expect(writeCall.path).toBe('wikis/20260323-engineering-log.thread01TEST.md')
+    expect(mockDbUpdate).toHaveBeenCalled()
   })
 
-  it('marks thread DIRTY when prompt changes', async () => {
+  it('marks thread PENDING when prompt changes', async () => {
     const existing = makeThread()
-    const updated = makeThread({ prompt: 'new prompt', state: 'DIRTY', updatedAt: new Date() })
+    const updated = makeThread({ prompt: 'new prompt', state: 'PENDING', updatedAt: new Date() })
 
     mockDbSelect.mockReturnValue(selectChainMock([existing]))
     const updateChain = updateChainMock([updated])
@@ -155,12 +142,11 @@ describe('PUT /wikis/:id — git sync', () => {
     })
 
     expect(res.status).toBe(200)
-    // Verify the set() call included state: 'DIRTY'
     const setArg = updateChain.set.mock.calls[0][0]
-    expect(setArg.state).toBe('DIRTY')
+    expect(setArg.state).toBe('PENDING')
   })
 
-  it('does NOT mark DIRTY when only name changes', async () => {
+  it('does NOT change state when only name changes', async () => {
     const existing = makeThread()
     const updated = makeThread({ name: 'Renamed', slug: 'renamed', updatedAt: new Date() })
 
@@ -177,44 +163,5 @@ describe('PUT /wikis/:id — git sync', () => {
 
     const setArg = updateChain.set.mock.calls[0][0]
     expect(setArg.state).toBeUndefined()
-  })
-
-  it('skips git write when repoPath is empty', async () => {
-    const existing = makeThread({ repoPath: '' })
-    const updated = makeThread({ repoPath: '', name: 'New', updatedAt: new Date() })
-
-    mockDbSelect.mockReturnValue(selectChainMock([existing]))
-    mockDbUpdate.mockReturnValue(updateChainMock([updated]))
-
-    const app = createApp()
-    const res = await app.request('/wikis/thread01TEST', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'New' }),
-    })
-
-    expect(res.status).toBe(200)
-    expect(mockRead).not.toHaveBeenCalled()
-    expect(mockWrite).not.toHaveBeenCalled()
-  })
-
-  it('returns 200 even when gateway write fails (fail-open)', async () => {
-    const existing = makeThread()
-    const updated = makeThread({ name: 'X', updatedAt: new Date() })
-
-    mockDbSelect.mockReturnValue(selectChainMock([existing]))
-    mockDbUpdate.mockReturnValue(updateChainMock([updated]))
-    mockWrite.mockRejectedValue(new Error('gateway down'))
-
-    const app = createApp()
-    const res = await app.request('/wikis/thread01TEST', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'X' }),
-    })
-
-    expect(res.status).toBe(200)
-    expect(mockRead).toHaveBeenCalledTimes(1)
-    expect(mockWrite).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import type { z } from 'zod'
 
 export interface EnvError {
   name: string
@@ -6,10 +6,20 @@ export interface EnvError {
   description?: string
 }
 
-export interface CreateConfigVarOpts<T extends Record<string, z.ZodType>> {
+/** Structural contract for a Zod-like schema — avoids cross-package ZodType identity issues. */
+export interface EnvSchema {
+  safeParse(value: unknown): { success: true; data: unknown } | { success: false; error: { issues?: Array<{ message: string }> } }
+  description?: string
+}
+
+export interface CreateConfigVarOpts<T extends Record<string, EnvSchema>> {
   schema: T
   runtimeEnv?: Record<string, string | undefined>
   onValidationError?: (errors: EnvError[]) => never
+}
+
+type InferSchema<T extends Record<string, EnvSchema>> = {
+  [K in keyof T]: T[K] extends z.ZodType ? z.infer<T[K]> : unknown
 }
 
 /**
@@ -20,9 +30,9 @@ export interface CreateConfigVarOpts<T extends Record<string, z.ZodType>> {
  * Empty strings are treated as undefined — this catches the common case where
  * a deployment platform sets a var to "" instead of leaving it unset.
  */
-export function createConfigVar<T extends Record<string, z.ZodType>>(
+export function createConfigVar<T extends Record<string, EnvSchema>>(
   opts: CreateConfigVarOpts<T>
-): Readonly<z.infer<z.ZodObject<T>>> {
+): Readonly<InferSchema<T>> {
   const raw = opts.runtimeEnv ?? (process.env as Record<string, string | undefined>)
   const errors: EnvError[] = []
   const result: Record<string, unknown> = {}
@@ -61,7 +71,7 @@ export function createConfigVar<T extends Record<string, z.ZodType>>(
     defaultErrorHandler(errors)
   }
 
-  return Object.freeze(result) as Readonly<z.infer<z.ZodObject<T>>>
+  return Object.freeze(result) as Readonly<InferSchema<T>>
 }
 
 function defaultErrorHandler(errors: EnvError[]): never {

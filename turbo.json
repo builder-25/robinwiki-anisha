@@ -14,11 +14,6 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
-    "build:gateway": {
-      "cache": true,
-      "outputs": ["bin/**"],
-      "inputs": ["**/*.go", "go.mod", "go.sum"]
-    },
     "dev": {
       "cache": false,
       "persistent": true
