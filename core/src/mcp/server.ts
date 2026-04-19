@@ -27,7 +27,7 @@ import type { McpServerDeps } from './handlers.js'
 import { wikis, edges, auditLog, groups, groupWikis } from '../db/schema.js'
 import { nanoid24 } from '../lib/id.js'
 import { hybridSearch } from '../lib/search.js'
-import { loadOpenRouterConfigFromDb } from '../lib/openrouter-config.js'
+import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
 import { emitAuditEvent } from '../db/audit.js'
 
 export type { McpServerDeps }
@@ -349,8 +349,8 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
         let embedConfig: { apiKey: string; model: string } | undefined
         if (mode !== 'bm25') {
           try {
-            const orConfig = await loadOpenRouterConfigFromDb(deps.db)
-            embedConfig = { apiKey: orConfig.apiKey, model: orConfig.embeddingModel }
+            const orConfig = await loadOpenRouterConfig()
+            embedConfig = { apiKey: orConfig.apiKey, model: orConfig.models.embedding }
           } catch {
             // No OpenRouter key — fall back to BM25-only
             if (mode === 'vector') {

@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
-import { sessionMiddleware } from '../middleware/session.js'
 import { db } from '../db/client.js'
-import { searchQuerySchema, searchResponseSchema } from '../schemas/search.schema.js'
+import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
 import { hybridSearch } from '../lib/search.js'
-import { loadOpenRouterConfigFromDb } from '../lib/openrouter-config.js'
+import { sessionMiddleware } from '../middleware/session.js'
+import { searchQuerySchema, searchResponseSchema } from '../schemas/search.schema.js'
 
 const search = new Hono()
 search.use('*', sessionMiddleware)
@@ -24,8 +24,8 @@ search.get('/', async (c) => {
   let embedConfig: { apiKey: string; model: string } | undefined
   if (mode === 'hybrid' || mode === 'vector') {
     try {
-      const orConfig = await loadOpenRouterConfigFromDb(db)
-      embedConfig = { apiKey: orConfig.apiKey, model: orConfig.embeddingModel }
+      const orConfig = await loadOpenRouterConfig()
+      embedConfig = { apiKey: orConfig.apiKey, model: orConfig.models.embedding }
     } catch {
       // No OpenRouter key configured — fall back to BM25 only
     }

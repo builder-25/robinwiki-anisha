@@ -22,6 +22,7 @@ import { contentRoutes } from './routes/content.js'
 import { wikiTypesRoutes } from './routes/wiki-types.js'
 import { auditRoutes } from './routes/audit.js'
 import { aiPreferencesRoutes } from './routes/ai-preferences.js'
+import { aiModelsRoutes } from './routes/ai-models.js'
 import { publishedRoutes } from './routes/published.js'
 import { startWorkers } from './queue/worker.js'
 import { bullBoardApp } from './routes/bull-board.js'
@@ -118,6 +119,7 @@ app.route('/relationships', relationshipsRoutes)
 app.route('/api/content', contentRoutes)
 app.route('/wiki-types', wikiTypesRoutes)
 app.route('/audit-log', auditRoutes)
+app.route('/ai', aiModelsRoutes)
 
 /***********************************************************************
  * ## Boot

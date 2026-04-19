@@ -98,7 +98,7 @@ export async function persist(
   // -- Fragment embeddings (best-effort, parallel) --
   const embedConfig = {
     apiKey: deps.openRouterConfig.apiKey,
-    model: deps.openRouterConfig.embeddingModel,
+    model: deps.openRouterConfig.models.embedding,
   }
   const vectors = await Promise.all(
     input.fragments.map((frag) => embedText(frag.content, embedConfig))

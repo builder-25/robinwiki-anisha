@@ -31,16 +31,16 @@ export const auth = betterAuth({
     if (!s) throw new Error('BETTER_AUTH_SECRET env var is required')
     return s
   })(),
-  baseURL: process.env.APP_URL ?? 'http://localhost:3000',
+  baseURL: process.env.SERVER_PUBLIC_URL ?? 'http://localhost:3000',
   basePath: '/api/auth',
   trustedOrigins: [
     ...(process.env.WIKI_ORIGIN?.split(',') ?? ['http://localhost:8080']),
   ],
   advanced: {
-    useSecureCookies: process.env.APP_URL?.startsWith('https://') ?? false,
+    useSecureCookies: process.env.SERVER_PUBLIC_URL?.startsWith('https://') ?? false,
     defaultCookieAttributes: {
-      sameSite: (process.env.APP_URL?.startsWith('https://') ? 'none' : 'lax') as 'none' | 'lax',
-      secure: process.env.APP_URL?.startsWith('https://') ?? false,
+      sameSite: (process.env.SERVER_PUBLIC_URL?.startsWith('https://') ? 'none' : 'lax') as 'none' | 'lax',
+      secure: process.env.SERVER_PUBLIC_URL?.startsWith('https://') ?? false,
     },
   },
 

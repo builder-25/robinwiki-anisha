@@ -12,6 +12,11 @@ import {
   Pencil,
   RefreshCw,
 } from "lucide-react";
+import { ModelSelector } from "@/components/ModelSelector";
+import {
+  isEmbeddingModel,
+  useModelPreferences,
+} from "@/hooks/useModelPreferences";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,6 +63,7 @@ export default function ProfilePage() {
   const { session, isLoading: sessionLoading } = useSession();
   const profileQuery = useProfile();
   const statsQuery = useStats();
+  const modelPrefs = useModelPreferences();
   const [copied, setCopied] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -174,6 +180,92 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
+          </Card>
+        </section>
+
+        {/* AI MODELS */}
+        <section className="mt-8 space-y-3">
+          <SectionLabel>AI Models</SectionLabel>
+
+          <Card size="sm" className="rounded-none">
+            <CardContent className="space-y-1">
+              <p className="text-xs text-muted-foreground">
+                Configure which models Robin uses for each pipeline stage.
+              </p>
+
+              {modelPrefs.loading ? (
+                <div className="flex items-center gap-2 py-4">
+                  <Spinner className="size-4" />
+                  <span className="text-xs text-muted-foreground">
+                    Loading models...
+                  </span>
+                </div>
+              ) : modelPrefs.error && !modelPrefs.preferences ? (
+                <p className="py-4 text-xs text-destructive">
+                  {modelPrefs.error}
+                </p>
+              ) : (
+                <div className="grid gap-4 pt-2 sm:grid-cols-2">
+                  <ModelSelector
+                    label="Extraction"
+                    description="Extracts atomic ideas from raw thoughts"
+                    models={modelPrefs.models}
+                    value={modelPrefs.preferences.extraction}
+                    onChange={(id) =>
+                      modelPrefs.updatePreference("extraction", id)
+                    }
+                    disabled={modelPrefs.saveStatus === "saving"}
+                  />
+                  <ModelSelector
+                    label="Classification"
+                    description="Classifies fragments into topic clusters"
+                    models={modelPrefs.models}
+                    value={modelPrefs.preferences.classification}
+                    onChange={(id) =>
+                      modelPrefs.updatePreference("classification", id)
+                    }
+                    disabled={modelPrefs.saveStatus === "saving"}
+                  />
+                  <ModelSelector
+                    label="Wiki Generation"
+                    description="Generates and updates wiki pages"
+                    models={modelPrefs.models}
+                    value={modelPrefs.preferences.wikiGeneration}
+                    onChange={(id) =>
+                      modelPrefs.updatePreference("wikiGeneration", id)
+                    }
+                    disabled={modelPrefs.saveStatus === "saving"}
+                  />
+                  <ModelSelector
+                    label="Embeddings"
+                    description="Creates vector embeddings (1536-dim only)"
+                    models={modelPrefs.models}
+                    value={modelPrefs.preferences.embedding}
+                    onChange={(id) =>
+                      modelPrefs.updatePreference("embedding", id)
+                    }
+                    filterFn={isEmbeddingModel}
+                    disabled={modelPrefs.saveStatus === "saving"}
+                  />
+                </div>
+              )}
+
+              {modelPrefs.saveStatus !== "idle" && (
+                <p
+                  className={cn(
+                    "pt-1 text-xs transition-opacity",
+                    modelPrefs.saveStatus === "saving" &&
+                      "text-muted-foreground",
+                    modelPrefs.saveStatus === "saved" && "text-emerald-600",
+                    modelPrefs.saveStatus === "error" && "text-destructive",
+                  )}
+                >
+                  {modelPrefs.saveStatus === "saving" && "Saving..."}
+                  {modelPrefs.saveStatus === "saved" && "Saved"}
+                  {modelPrefs.saveStatus === "error" && "Failed to save"}
+                </p>
+              )}
+            </CardContent>
           </Card>
         </section>
 

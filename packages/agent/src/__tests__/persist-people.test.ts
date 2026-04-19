@@ -19,8 +19,12 @@ function makeMockDeps(overrides: Partial<PersistDeps> = {}): PersistDeps {
     emitEvent: vi.fn().mockResolvedValue(undefined),
     openRouterConfig: {
       apiKey: 'test-key',
-      chatModel: 'anthropic/claude-3-5-sonnet',
-      embeddingModel: 'openai/text-embedding-3-small',
+      models: {
+        extraction: 'anthropic/claude-3-5-sonnet',
+        classification: 'anthropic/claude-3-5-sonnet',
+        wikiGeneration: 'anthropic/claude-3-5-sonnet',
+        embedding: 'openai/text-embedding-3-small',
+      },
     },
     ...overrides,
   }

@@ -45,7 +45,7 @@ usersRouter.get('/profile', async (c) => {
   const [key] = await db.select().from(apiKeys).limit(1)
 
   const mcpToken = await signMcpToken(user.id).catch(() => null)
-  const appUrl = process.env.APP_URL ?? 'http://localhost:3000'
+  const appUrl = process.env.SERVER_PUBLIC_URL ?? 'http://localhost:3000'
 
   return c.json(
     userProfileResponseSchema.parse({
@@ -183,7 +183,7 @@ usersRouter.post('/regenerate-mcp', async (c) => {
     .where(eq(users.id, userId))
   const mcpToken = await signMcpToken(userId)
   if (!mcpToken) return c.json({ error: 'No keypair — sign out and back in to generate one' }, 400)
-  const appUrl = process.env.APP_URL ?? 'http://localhost:3000'
+  const appUrl = process.env.SERVER_PUBLIC_URL ?? 'http://localhost:3000'
   return c.json(
     mcpEndpointResponseSchema.parse({ mcpEndpointUrl: `${appUrl}/mcp?token=${mcpToken}` })
   )

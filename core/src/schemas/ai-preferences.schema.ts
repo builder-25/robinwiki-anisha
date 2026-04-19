@@ -1,10 +1,5 @@
 import { z } from 'zod'
 
-// POST /users/preferences/ai body
-export const saveAiPreferencesBodySchema = z.object({
-  openRouterKey: z.string().min(1),
-})
-
 // GET /users/preferences/ai response
 export const aiPreferencesResponseSchema = z.object({
   hasOpenRouterKey: z.boolean(),
@@ -23,4 +18,20 @@ export const promptsResponseSchema = z.object({
   extraction: z.string().nullable(),
   wikiClassify: z.string().nullable(),
   wikiGeneration: z.string().nullable(),
+})
+
+// GET /users/preferences/models response
+export const modelPreferencesResponseSchema = z.object({
+  extraction: z.string(),
+  classification: z.string(),
+  wikiGeneration: z.string(),
+  embedding: z.string(),
+})
+
+// PUT /users/preferences/models body
+export const saveModelPreferencesBodySchema = z.object({
+  extraction: z.string().min(1).optional(),
+  classification: z.string().min(1).optional(),
+  wikiGeneration: z.string().min(1).optional(),
+  embedding: z.string().min(1).optional(),
 })
