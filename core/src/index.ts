@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import './bootstrap/env.js'
+import { assertProdEnv } from './bootstrap/env.js'
 import { readFileSync } from 'node:fs'
 import { load as loadYaml } from 'js-yaml'
 import { Hono } from 'hono'
@@ -29,6 +29,7 @@ import { bullBoardApp } from './routes/bull-board.js'
 import { adminRoutes } from './routes/admin.js'
 import { authRecoverRoutes } from './routes/auth-recover.js'
 import { checkOpenRouterKey } from './bootstrap/check-openrouter-key.js'
+import { ensurePgvector } from './bootstrap/ensure-pgvector.js'
 import { runMigrations } from './bootstrap/run-migrations.js'
 import { seedWikiTypes } from './bootstrap/seed-wiki-types.js'
 import { loadMasterKey } from './lib/crypto.js'
@@ -127,8 +128,19 @@ app.route('/ai', aiModelsRoutes)
  * ## Boot
  ***********************************************************************/
 
+// Explicit, idempotent prod-env gate. Also runs at module load (from env.ts),
+// so in practice this line is a no-op — kept here to document boot order.
+assertProdEnv()
+
 // Fail fast on missing MASTER_KEY before any crypto ops run
 loadMasterKey()
+
+// Ensure pgvector exists before migrations — some tables reference the type.
+// Best-effort: logs a warning and continues if the DB role lacks CREATE EXTENSION,
+// so the actual migration failure surfaces as the real error.
+await ensurePgvector().catch((err) => {
+  logger.warn({ err }, 'ensure-pgvector failed — continuing, migrations may fail')
+})
 
 // Apply pending migrations before any code touches the schema.
 // runMigrations is idempotent and safe to call on every boot.
