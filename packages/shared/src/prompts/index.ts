@@ -3,6 +3,8 @@ export { PromptSpecSchema } from './schema.js'
 export type { PromptSpec } from './schema.js'
 export type { PromptResult } from './types.js'
 export { loadSpec, renderTemplate, parseSpecFromBlob } from './loader.js'
+export { loadWikiTypePreviewFixture } from './fixtures/loader.js'
+export type { PromptPreviewVars } from './fixtures/loader.js'
 
 // Model constants (stay in code per CONTEXT.md decision)
 export * from './models.js'
