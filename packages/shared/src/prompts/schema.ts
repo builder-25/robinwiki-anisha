@@ -30,6 +30,11 @@ export const PromptSpecSchema = z.object({
   input_variables: z.array(InputVariableSchema),
   output: OutputSchema.optional(),
   few_shot_examples: z.array(FewShotSchema).optional(),
+  system_only: z.boolean().optional().default(false),
+  display_label: z.string().optional(),
+  display_description: z.string().optional(),
+  display_short_descriptor: z.string().optional(),
+  display_order: z.number().int().optional(),
 })
 
 export type PromptSpec = z.infer<typeof PromptSpecSchema>
