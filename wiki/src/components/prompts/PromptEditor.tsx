@@ -17,6 +17,9 @@ import { getPromptIcon } from "@/lib/promptIcons";
 import { cn } from "@/lib/utils";
 import type { ApiErrorBody, PromptEditorProps } from "./types";
 import VariableChipList from "./VariableChipList";
+import ValidationBanner from "./ValidationBanner";
+import WarningToast from "./WarningToast";
+import { NETWORK_ERROR_MESSAGE } from "./errorMessages";
 
 // Dynamic-import the CodeMirror wrapper so CM6 never ships in the server bundle.
 const PromptEditorCM = dynamic(() => import("./PromptEditorCM"), {
@@ -47,6 +50,7 @@ export default function PromptEditor({
   const [savedYaml, setSavedYaml] = useState(initialYaml);
   const [saveError, setSaveError] = useState<ApiErrorBody | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const viewRef = useRef<EditorView | null>(null);
 
   const Icon = getPromptIcon(slug);
@@ -80,8 +84,8 @@ export default function PromptEditor({
         } catch {
           body = { error: `Save failed (${res.status})` };
         }
-        // TODO(PE-04): map error codes
         setSaveError(body);
+        setWarnings([]);
         setIsSaving(false);
         return;
       }
@@ -96,11 +100,10 @@ export default function PromptEditor({
         basedOnVersion: json.basedOnVersion,
         warnings: json.warnings ?? [],
       });
-    } catch (e) {
-      // TODO(PE-04): map error codes
-      setSaveError({
-        error: e instanceof Error ? e.message : "Save failed",
-      });
+      setWarnings(json.warnings ?? []);
+    } catch {
+      setSaveError({ error: NETWORK_ERROR_MESSAGE });
+      setWarnings([]);
     } finally {
       setIsSaving(false);
     }
@@ -201,13 +204,8 @@ export default function PromptEditor({
         </Collapsible>
       ) : null}
 
-      {/* Save error (temporary; Plan 04 replaces with ValidationBanner) */}
-      {saveError ? (
-        <p className="text-sm text-destructive" role="alert">
-          {saveError.code ? `[${saveError.code}] ` : ""}
-          {saveError.error}
-        </p>
-      ) : null}
+      <ValidationBanner error={saveError} />
+      <WarningToast warnings={warnings} onDismiss={() => setWarnings([])} />
 
       {/* Footer */}
       {compact ? (
