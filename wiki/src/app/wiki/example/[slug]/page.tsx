@@ -50,7 +50,7 @@ const EXAMPLES: Record<string, ExampleEntry> = {
   },
   "ship-the-atlas": {
     slug: "ship-the-atlas",
-    chipLabel: "Goal",
+    chipLabel: "Objective",
     title: "Ship the atlas by Q3",
     lede:
       "The atlas has to be in readers' hands before the autumn conference. That means copy frozen by late June, plates to the printer by mid-July, and a two-week buffer I will almost certainly burn through.",
@@ -107,16 +107,6 @@ const EXAMPLES: Record<string, ExampleEntry> = {
     sectionTitle: "How it differs from the evening voice",
     sectionBody:
       "The evening voice argues. It uses semicolons. The morning voice observes. It uses full stops. They are not rankings of quality — they are different tools for different times, and the main mistake is to edit one into the other and lose both.",
-  },
-  zami: {
-    slug: "zami",
-    chipLabel: "Works",
-    title: "Zami: A New Spelling of My Name",
-    lede:
-      "Audre Lorde's 1982 biomythography — part memoir, part mythmaking — which traces her childhood in Harlem, her coming of age as a Black lesbian writer in the 1950s, and the women who shaped her sense of self and community.",
-    sectionTitle: "Why the form matters",
-    sectionBody:
-      "Lorde invented the word biomythography to refuse the thinness of either memoir or novel. The book insists that the truth of a life includes the myths one lives by, and that stripping those out in the name of nonfiction is its own kind of lie.",
   },
 };
 

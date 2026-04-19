@@ -182,7 +182,7 @@ function makeWiki(overrides: Record<string, unknown> = {}) {
     lookupKey: 'wiki01TEST',
     slug: 'test-wiki',
     name: 'Test Wiki',
-    type: 'goal',
+    type: 'objective',
     prompt: '',
     state: 'RESOLVED',
     content: '',

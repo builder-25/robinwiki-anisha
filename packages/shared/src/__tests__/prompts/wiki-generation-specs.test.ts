@@ -15,7 +15,7 @@ const allTypes: WikiType[] = [
   'belief',
   'decision',
   'project',
-  'goal',
+  'objective',
   'skill',
   'agent',
   'voice',

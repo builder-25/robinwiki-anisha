@@ -68,11 +68,13 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 const WIKI_TYPES = [
-  { value: "personal", label: "Personal" },
+  { value: "log", label: "Log" },
   { value: "research", label: "Research" },
+  { value: "belief", label: "Belief" },
+  { value: "decision", label: "Decision" },
   { value: "project", label: "Project" },
-  { value: "goal", label: "Goal" },
-  { value: "principle", label: "Principle" },
+  { value: "objective", label: "Objective" },
+  { value: "principles", label: "Principles" },
   { value: "skill", label: "Skill" },
   { value: "agent", label: "Agent" },
   { value: "voice", label: "Voice" },
@@ -230,7 +232,7 @@ export default function AddWikiModal({
                 margin: 0,
               }}
             >
-              {subtitle ?? "Lorem Ipsum dolor sit amet"}
+              {subtitle ?? "Create a new wiki to organize your knowledge."}
             </DialogDescription>
           </DialogHeader>
 

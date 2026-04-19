@@ -29,11 +29,11 @@ const SUBTYPE_COLOR: Record<string, string> = {
   Belief: "#2563eb",
   Decision: "#ea580c",
   Project: "#0891b2",
-  Goal: "#d97706",
+  Objective: "#d97706",
   Skill: "#059669",
   Agent: "#c026d3",
   Voice: "#db2777",
-  Principle: "#e11d48",
+  Principles: "#e11d48",
   Fact: "#0284c7",
   Question: "#9333ea",
   Idea: "#ca8a04",
@@ -179,9 +179,9 @@ export function GraphDetailPanel({
       case "wiki":
         return `/wiki/${id}`;
       case "fragment":
-        return `/wiki/fragment/${id}`;
+        return `/wiki/fragments/${id}`;
       case "person":
-        return `/wiki/person/${id}`;
+        return `/wiki/people/${id}`;
     }
   };
 

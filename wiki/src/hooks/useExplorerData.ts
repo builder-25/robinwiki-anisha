@@ -67,7 +67,7 @@ export function useExplorerData(filters: ExplorerFilters) {
         groupName: null,
         groupColor: null,
         date: frag.updatedAt,
-        href: `/wiki/fragment/${frag.lookupKey}`,
+        href: `/wiki/fragments/${frag.lookupKey}`,
       })
     }
 
@@ -83,7 +83,7 @@ export function useExplorerData(filters: ExplorerFilters) {
         groupName: null,
         groupColor: null,
         date: person.updatedAt,
-        href: `/wiki/person/${person.lookupKey}`,
+        href: `/wiki/people/${person.lookupKey}`,
       })
     }
 

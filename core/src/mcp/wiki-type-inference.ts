@@ -11,7 +11,7 @@ const WIKI_TYPE_DESCRIPTORS: Record<WikiType, string> = {
   belief:     'a synthesis of a held position or mental model',
   decision:   'a record of a discrete choice and its reasoning',
   project:    'a living document of an active initiative',
-  goal:       'a high-level goal with measurable direction',
+  objective:  'a high-level objective with measurable direction',
   skill:      'a knowledge base for a capability being built',
   agent:      'documentation for a configured AI assistant',
   voice:      'a style guide for communication',

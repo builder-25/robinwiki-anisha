@@ -85,9 +85,10 @@ export default function ProfilePage() {
   };
 
   const stats = [
+    { count: 0, label: "Fragments" },
+    { count: 0, label: "Unattached Fragments" },
     { count: statsQuery.data?.totalThreads ?? 0, label: "Wikis" },
     { count: statsQuery.data?.peopleCount ?? 0, label: "People" },
-    { count: statsQuery.data?.unthreadedCount ?? 0, label: "Unthreaded" },
   ];
 
   if (sessionLoading || profileQuery.isLoading) {
@@ -163,14 +164,14 @@ export default function ProfilePage() {
           </Card>
         </section>
 
-        {/* KNOWLEDGE HEALTH */}
+        {/* KNOWLEDGE STATS */}
         <section className="mt-8 space-y-3">
-          <SectionLabel>Knowledge Health</SectionLabel>
+          <SectionLabel>Knowledge Stats</SectionLabel>
 
           <Card size="sm" className="gap-0 rounded-none py-0">
-            <div className="grid grid-cols-3 divide-x divide-border">
+            <div className="grid grid-cols-4 divide-x divide-border">
               {stats.map((stat) => (
-                <div key={stat.label} className="py-5 text-center">
+                <div key={stat.label} className="px-2 py-5 text-center">
                   <p className="font-heading text-2xl font-semibold text-foreground">
                     {stat.count}
                   </p>
@@ -269,9 +270,9 @@ export default function ProfilePage() {
           </Card>
         </section>
 
-        {/* VAULT MANAGEMENT */}
+        {/* WIKI MANAGEMENT */}
         <section className="mt-8 space-y-3">
-          <SectionLabel>Vault Management</SectionLabel>
+          <SectionLabel>Wiki Management</SectionLabel>
 
           <Card size="sm" className="rounded-none">
             <CardContent className="space-y-3">

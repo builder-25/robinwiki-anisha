@@ -69,7 +69,7 @@ function HomeSearchBlock({ activeFilter }: { activeFilter: HeroFilter | null }) 
         value={draft}
         onChange={setDraft}
         onSubmit={submit}
-        placeholder="Who is the president?"
+        placeholder="What are you looking for?"
       />
     </div>
   );

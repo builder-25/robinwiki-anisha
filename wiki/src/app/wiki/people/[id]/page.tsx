@@ -9,12 +9,13 @@ import {
   WikiSectionH2,
   WikiLink,
 } from "@/components/wiki/WikiEntityArticle";
+import { Badge } from "@/components/ui/badge";
 
-const PEOPLE_FRAGMENTS: string[] = [
-  "Andrew Tate Biography | The Real World Portal",
-  "Andrew Tate Biography | The Real World Portal",
-  "Andrew Tate Biography | The Real World Portal",
-  "Andrew Tate Biography | The Real World Portal",
+const PEOPLE_FRAGMENTS: { id: string; title: string }[] = [
+  { id: "fragment01SAMPLE", title: "Andrew Tate Biography | The Real World Portal" },
+  { id: "fragment01SAMPLE", title: "Andrew Tate Biography | The Real World Portal" },
+  { id: "fragment01SAMPLE", title: "Andrew Tate Biography | The Real World Portal" },
+  { id: "fragment01SAMPLE", title: "Andrew Tate Biography | The Real World Portal" },
 ];
 
 function SettingsIcon() {
@@ -155,10 +156,15 @@ function PeopleInfobox({
 
 function PeopleFragmentsSection() {
   const count = PEOPLE_FRAGMENTS.length;
+  const bodyStyle = {
+    ...T.bodySmall,
+    color: "var(--wiki-article-text)",
+    lineHeight: 1.6,
+  };
 
   return (
     <section style={{ width: "100%" }}>
-      <WikiSectionH2 title="Mentioned in fragments" count={count} />
+      <WikiSectionH2 title="Mentioned-in fragments" count={count} />
       {count === 0 ? (
         <p
           style={{
@@ -174,30 +180,49 @@ function PeopleFragmentsSection() {
       ) : (
         <ul
           style={{
-            listStyle: "disc",
+            ...bodyStyle,
+            listStyle: "decimal",
             paddingLeft: 20,
             margin: "12px 0 0 0",
             display: "flex",
             flexDirection: "column",
-            gap: 4,
-            color: "var(--wiki-bullet)",
+            gap: 6,
           }}
         >
-          {PEOPLE_FRAGMENTS.map((title, i) => (
-            <li key={i} style={{ lineHeight: "22px" }}>
-              <a
-                href="#"
-                className="wiki-fragment-link"
+          {PEOPLE_FRAGMENTS.map((frag, i) => (
+            <li key={i}>
+              <div
                 style={{
-                  ...T.body,
-                  fontFamily: FONT.SANS,
-                  lineHeight: "22px",
-                  color: "var(--wiki-fragment-link)",
-                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
                 }}
               >
-                {title}
-              </a>
+                <a
+                  href={`/wiki/fragments/${frag.id}`}
+                  style={{
+                    color: "var(--wiki-fragment-link)",
+                    textDecoration: "underline",
+                    textDecorationSkipInk: "none",
+                  }}
+                >
+                  {frag.title}
+                </a>
+                <Badge
+                  variant="outline"
+                  className="rounded-full"
+                  style={{
+                    backgroundColor: "#f5f5f5",
+                    color: "#545353",
+                    borderColor: "#d1d5db",
+                    padding: "2px 10px",
+                    ...T.micro,
+                  }}
+                >
+                  mentions
+                </Badge>
+              </div>
             </li>
           ))}
         </ul>

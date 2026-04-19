@@ -13,16 +13,24 @@ export type WikiSettingsPrefill = {
 export const WIKI_INTRO_LEAD_PLAINTEXT =
   "Audre Lorde (/ˈɔːdri ˈlɔːrd/; born Audrey Geraldine Lorde; February 18, 1934 – November 17, 1992) was an American writer, feminist, womanist, librarian, and civil rights activist. She was a self-described";
 
-/** Maps UI chip labels to <select> option values in AddWikiModal. */
+/**
+ * Maps UI chip labels to <select> option values in AddWikiModal.
+ * Must cover every WikiType so that opening settings from any wiki pre-fills
+ * the Type field correctly.
+ */
 const CHIP_LABEL_TO_WIKI_TYPE: Record<string, string> = {
+  Log: "log",
   Research: "research",
+  Belief: "belief",
+  Decision: "decision",
   Project: "project",
-  Goal: "goal",
-  Principle: "principle",
+  Objective: "objective",
+  Principles: "principles",
   Skill: "skill",
   Agent: "agent",
   Voice: "voice",
   People: "people",
+  Person: "people",
 };
 
 export function wikiTypeSelectValueForChip(chipLabel: string): string {
