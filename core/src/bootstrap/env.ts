@@ -9,7 +9,7 @@ export const env = createConfigVar({
       .string()
       .min(32)
       .describe('32+ char session signing key (openssl rand -hex 32)'),
-    APP_URL: z.string().url().describe('Core public URL, e.g. https://core.example.com'),
+    SERVER_PUBLIC_URL: z.string().url().describe('Server public URL, e.g. https://api.example.com'),
     MASTER_KEY: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
