@@ -349,7 +349,7 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
         let embedConfig: { apiKey: string; model: string } | undefined
         if (mode !== 'bm25') {
           try {
-            const orConfig = loadOpenRouterConfig()
+            const orConfig = await loadOpenRouterConfig()
             embedConfig = { apiKey: orConfig.apiKey, model: orConfig.models.embedding }
           } catch {
             // No OpenRouter key — fall back to BM25-only

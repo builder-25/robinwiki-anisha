@@ -24,7 +24,7 @@ search.get('/', async (c) => {
   let embedConfig: { apiKey: string; model: string } | undefined
   if (mode === 'hybrid' || mode === 'vector') {
     try {
-      const orConfig = loadOpenRouterConfig()
+      const orConfig = await loadOpenRouterConfig()
       embedConfig = { apiKey: orConfig.apiKey, model: orConfig.models.embedding }
     } catch {
       // No OpenRouter key configured — fall back to BM25 only

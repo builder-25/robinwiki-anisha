@@ -63,7 +63,7 @@ aiModelsRouter.get('/models', async (c) => {
 
   let apiKey: string
   try {
-    const config = loadOpenRouterConfig()
+    const config = await loadOpenRouterConfig()
     apiKey = config.apiKey
   } catch {
     if (cachedModels) {

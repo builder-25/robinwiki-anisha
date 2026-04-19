@@ -31,7 +31,7 @@ export async function regenerateWiki(
 
   const previousContent = wiki.content
 
-  const orConfig = loadOpenRouterConfig()
+  const orConfig = await loadOpenRouterConfig()
   const agents = createIngestAgents(orConfig)
   const callLlm = createStringCaller(agents.wikiClassifier)
 
