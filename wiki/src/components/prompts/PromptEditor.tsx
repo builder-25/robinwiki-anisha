@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ChevronDown, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -54,6 +54,7 @@ export default function PromptEditor({
   compact = false,
   footerActions,
   mode: _mode = "full-yaml",
+  onDirtyChange,
 }: PromptEditorProps) {
   // mode !== "full-yaml" is a Phase 3 extension point — this plan treats it the same as "full-yaml".
   const [yaml, setYaml] = useState(initialYaml);
@@ -69,6 +70,9 @@ export default function PromptEditor({
   const queryClient = useQueryClient();
   const isDirty = yaml !== savedYaml;
   useUnsavedGuard(isDirty);
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   const Icon = getPromptIcon(slug);
 

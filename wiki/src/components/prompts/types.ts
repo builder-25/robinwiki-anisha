@@ -41,4 +41,6 @@ export interface PromptEditorProps {
   footerActions?: ReactNode;
   /** Phase 3 extension: "system-message-only" narrows the editor to the system_message field. */
   mode?: EditorMode;
+  /** Emits whenever the editor's dirty state (yaml !== savedYaml) changes. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
