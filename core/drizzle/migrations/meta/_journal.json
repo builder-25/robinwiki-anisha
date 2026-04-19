@@ -15,6 +15,13 @@
       "when": 1776537600000,
       "tag": "0001_taxonomy_rename",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776613431034,
+      "tag": "0002_wiki_types_based_on_version",
+      "breakpoints": true
     }
   ]
 }

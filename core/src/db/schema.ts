@@ -135,9 +135,16 @@ export const wikiTypes = pgTable('wiki_types', {
   name: text('name').notNull(),
   shortDescriptor: text('short_descriptor').notNull().default(''),
   descriptor: text('descriptor').notNull().default(''),
+  /**
+   * Full YAML spec blob. For seeded rows this is the raw file content
+   * from packages/shared/src/prompts/specs/wiki-types/<slug>.yaml. For
+   * user-modified rows this is the posted YAML validated via
+   * prompt-validation.ts. See regen.ts and routes/wiki-types.ts.
+   */
   prompt: text('prompt').notNull().default(''),
   isDefault: boolean('is_default').notNull().default(false),
   userModified: boolean('user_modified').notNull().default(false),
+  basedOnVersion: integer('based_on_version').notNull().default(1),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
