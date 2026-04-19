@@ -15,33 +15,32 @@ export interface IngestAgents {
  * the `configs` table (encrypted via the crypto envelope) by core.
  */
 export function createIngestAgents(config: OpenRouterConfig): IngestAgents {
-  const openrouter = createOpenRouter({ apiKey: config.apiKey })
-  const model = openrouter(config.chatModel)
+  const or = createOpenRouter({ apiKey: config.apiKey })
 
   return {
     fragmenter: new Agent({
       id: 'fragmenter',
       name: 'Fragmenter',
       instructions: '',
-      model,
+      model: or(config.models.extraction),
     }),
     entityExtractor: new Agent({
       id: 'entity-extractor',
       name: 'EntityExtractor',
       instructions: '',
-      model,
+      model: or(config.models.extraction),
     }),
     wikiClassifier: new Agent({
       id: 'wiki-classifier',
       name: 'Marcel',
       instructions: '',
-      model,
+      model: or(config.models.classification),
     }),
     fragScorer: new Agent({
       id: 'frag-scorer',
       name: 'Judge',
       instructions: '',
-      model,
+      model: or(config.models.classification),
     }),
   }
 }

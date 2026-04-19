@@ -53,7 +53,7 @@ import { emitPipelineEvent } from '../db/pipeline-events.js'
 import { emitAuditEvent } from '../db/audit.js'
 import { producer } from './producer.js'
 import { processRegenJob } from './regen-worker.js'
-import { loadOpenRouterConfigFromDb } from '../lib/openrouter-config.js'
+import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
 import { generateKeypair } from '../keypair.js'
 import { logger } from '../lib/logger.js'
 
@@ -99,7 +99,7 @@ async function processExtractionJob(job: ExtractionJob): Promise<JobResult> {
   // 1. Per-call OpenRouter key fetch. Missing key → mark entry failed and rethrow.
   let openRouterConfig: OpenRouterConfig
   try {
-    openRouterConfig = await loadOpenRouterConfigFromDb(db)
+    openRouterConfig = await loadOpenRouterConfig()
   } catch (err) {
     if (err instanceof NoOpenRouterKeyError) {
       await db
@@ -366,7 +366,7 @@ async function processLinkJob(job: LinkJob): Promise<JobResult> {
   log.info({ jobId: job.jobId, fragmentKey: job.fragmentKey }, 'processing link job')
   const t0 = performance.now()
 
-  const openRouterConfig = await loadOpenRouterConfigFromDb(db)
+  const openRouterConfig = await loadOpenRouterConfig()
   const agents = createIngestAgents(openRouterConfig)
 
   const deps: LinkingOrchestratorDeps = {
@@ -405,7 +405,7 @@ async function processLinkJob(job: LinkJob): Promise<JobResult> {
       vectorSearch: async (content, limit) => {
         const vec = await embedText(content, {
           apiKey: openRouterConfig.apiKey,
-          model: openRouterConfig.embeddingModel,
+          model: openRouterConfig.models.embedding,
         })
         if (!vec) return []
         const rows = await db

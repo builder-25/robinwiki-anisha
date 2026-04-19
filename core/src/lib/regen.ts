@@ -4,7 +4,7 @@ import { loadWikiGenerationSpec } from '@robin/shared'
 import type { WikiType } from '@robin/shared'
 import { db as defaultDb, type DB } from '../db/client.js'
 import { wikis, wikiTypes, edges, fragments, edits } from '../db/schema.js'
-import { loadOpenRouterConfigFromDb } from './openrouter-config.js'
+import { loadOpenRouterConfig } from './openrouter-config.js'
 import { nanoid } from './id.js'
 import { logger } from './logger.js'
 import { emitAuditEvent } from '../db/audit.js'
@@ -31,7 +31,7 @@ export async function regenerateWiki(
 
   const previousContent = wiki.content
 
-  const orConfig = await loadOpenRouterConfigFromDb(database)
+  const orConfig = loadOpenRouterConfig()
   const agents = createIngestAgents(orConfig)
   const callLlm = createStringCaller(agents.wikiClassifier)
 
@@ -178,7 +178,7 @@ export async function regenerateWiki(
   if (!opts?.skipEmbedding) {
     const vec = await embedText(markdown, {
       apiKey: orConfig.apiKey,
-      model: orConfig.embeddingModel,
+      model: orConfig.models.embedding,
     })
     if (vec) {
       await database.update(wikis).set({ embedding: vec }).where(eq(wikis.lookupKey, wikiKey))
