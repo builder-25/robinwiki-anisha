@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ChevronDown, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -41,6 +41,14 @@ const PromptEditorCM = dynamic(() => import("./PromptEditorCM"), {
   ),
 });
 
+function PromptHeaderIcon({ slug }: { slug: string }) {
+  return createElement(getPromptIcon(slug), {
+    size: 20,
+    strokeWidth: 1.5,
+    style: { color: "var(--prompt-wiki-icon-stroke)" },
+  });
+}
+
 export default function PromptEditor({
   slug,
   displayLabel,
@@ -73,8 +81,6 @@ export default function PromptEditor({
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
-
-  const Icon = getPromptIcon(slug);
 
   const handleInsertVariable = useCallback((name: string) => {
     const view = viewRef.current;
@@ -209,11 +215,7 @@ export default function PromptEditor({
       {/* Header (non-compact) */}
       {!compact ? (
         <header className="flex items-center gap-2.5">
-          <Icon
-            size={20}
-            strokeWidth={1.5}
-            style={{ color: "var(--prompt-wiki-icon-stroke)" }}
-          />
+          <PromptHeaderIcon slug={slug} />
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span
               style={{
