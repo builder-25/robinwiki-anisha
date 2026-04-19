@@ -20,47 +20,31 @@ vi.mock('../db/client.js', () => ({
 vi.mock('../db/schema.js', () => ({
   entries: {
     lookupKey: 'entries.lookup_key',
-    repoPath: 'entries.repo_path',
-    userId: 'entries.user_id',
     deletedAt: 'entries.deleted_at',
     title: 'entries.title',
   },
   fragments: {
     lookupKey: 'fragments.lookup_key',
-    repoPath: 'fragments.repo_path',
-    userId: 'fragments.user_id',
     deletedAt: 'fragments.deleted_at',
     title: 'fragments.title',
     tags: 'fragments.tags',
   },
   wikis: {
     lookupKey: 'wikis.lookup_key',
-    repoPath: 'wikis.repo_path',
-    userId: 'wikis.user_id',
     deletedAt: 'wikis.deleted_at',
     name: 'wikis.name',
     type: 'wikis.type',
     prompt: 'wikis.prompt',
+    content: 'wikis.content',
   },
   people: {
     lookupKey: 'people.lookup_key',
-    repoPath: 'people.repo_path',
-    userId: 'people.user_id',
     deletedAt: 'people.deleted_at',
     name: 'people.name',
     relationship: 'people.relationship',
   },
   edges: {},
   edits: {},
-}))
-
-const mockRead = vi.fn()
-const mockWrite = vi.fn()
-vi.mock('../gateway/client.js', () => ({
-  gatewayClient: {
-    read: (...args: unknown[]) => mockRead(...args),
-    write: (...args: unknown[]) => mockWrite(...args),
-  },
 }))
 
 vi.mock('../middleware/session.js', () => ({
@@ -83,6 +67,10 @@ vi.mock('../lib/logger.js', () => ({
       error: vi.fn(),
     }),
   },
+}))
+
+vi.mock('../db/audit.js', () => ({
+  emitAuditEvent: vi.fn().mockResolvedValue(undefined),
 }))
 
 // Import after mocks
@@ -123,60 +111,42 @@ describe('Content Read API (EDIT-01)', () => {
       const chain = chainMock([])
       mockDbSelect.mockReturnValue(chain)
       const app = createApp()
-      const res = await app.request('/api/content/thread/key-123')
+      const res = await app.request('/api/content/wiki/key-123')
       expect(res.status).toBe(404)
     })
 
-    it('returns 404 when repoPath is empty', async () => {
-      const chain = chainMock([{ lookupKey: 'key-123', repoPath: '', deletedAt: null }])
-      mockDbSelect.mockReturnValue(chain)
-      const app = createApp()
-      const res = await app.request('/api/content/thread/key-123')
-      expect(res.status).toBe(404)
-      const json = await res.json()
-      expect(json.error).toBe('Content not available')
-    })
-
-    it('returns raw markdown content by default', async () => {
+    it('returns content from DB row', async () => {
       const chain = chainMock([
-        { lookupKey: 'key-123', repoPath: 'wikis/file.md', deletedAt: null },
+        { lookupKey: 'key-123', deletedAt: null, content: 'Hello world' },
       ])
       mockDbSelect.mockReturnValue(chain)
-      mockRead.mockResolvedValue({
-        content: '---\nname: Test\n---\nHello world',
-      })
       const app = createApp()
-      const res = await app.request('/api/content/thread/key-123')
+      const res = await app.request('/api/content/wiki/key-123')
       expect(res.status).toBe(200)
       const json = await res.json()
-      expect(json.content).toBe('---\nname: Test\n---\nHello world')
+      expect(json.content).toBe('Hello world')
     })
 
-    it('returns structured { frontmatter, body, raw } when ?format=structured', async () => {
+    it('returns structured response when ?format=structured', async () => {
       const chain = chainMock([
-        { lookupKey: 'key-123', repoPath: 'wikis/file.md', deletedAt: null },
+        { lookupKey: 'key-123', deletedAt: null, content: 'Body text here' },
       ])
       mockDbSelect.mockReturnValue(chain)
-      mockRead.mockResolvedValue({
-        content: '---\nname: Test\ntags:\n  - a\n---\nBody text here',
-      })
       const app = createApp()
-      const res = await app.request('/api/content/thread/key-123?format=structured')
+      const res = await app.request('/api/content/wiki/key-123?format=structured')
       expect(res.status).toBe(200)
       const json = await res.json()
-      expect(json.frontmatter.name).toBe('Test')
       expect(json.body).toBe('Body text here')
-      expect(json.raw).toContain('name: Test')
+      expect(json.raw).toBe('Body text here')
     })
 
     it('applies defaults for missing frontmatter fields (wikiLinks, brokenLinks, tags)', async () => {
       const chain = chainMock([
-        { lookupKey: 'key-123', repoPath: 'wikis/file.md', deletedAt: null },
+        { lookupKey: 'key-123', deletedAt: null, content: 'Body' },
       ])
       mockDbSelect.mockReturnValue(chain)
-      mockRead.mockResolvedValue({ content: '---\nname: Test\n---\nBody' })
       const app = createApp()
-      const res = await app.request('/api/content/thread/key-123?format=structured')
+      const res = await app.request('/api/content/wiki/key-123?format=structured')
       const json = await res.json()
       expect(json.frontmatter.wikiLinks).toEqual([])
       expect(json.frontmatter.brokenLinks).toEqual([])
@@ -184,16 +154,12 @@ describe('Content Read API (EDIT-01)', () => {
     })
 
     it('requires authenticated session', async () => {
-      // sessionMiddleware is mocked to always set userId, but testing the
-      // middleware is present ensures the route uses session auth
       const chain = chainMock([
-        { lookupKey: 'key-123', repoPath: 'wikis/file.md', deletedAt: null },
+        { lookupKey: 'key-123', deletedAt: null, content: 'Body' },
       ])
       mockDbSelect.mockReturnValue(chain)
-      mockRead.mockResolvedValue({ content: '---\nname: Test\n---\nBody' })
       const app = createApp()
-      const res = await app.request('/api/content/thread/key-123')
-      // Should succeed with mocked session
+      const res = await app.request('/api/content/wiki/key-123')
       expect(res.status).toBe(200)
     })
   })

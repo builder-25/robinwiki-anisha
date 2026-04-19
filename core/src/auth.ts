@@ -31,17 +31,16 @@ export const auth = betterAuth({
     if (!s) throw new Error('BETTER_AUTH_SECRET env var is required')
     return s
   })(),
-  baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
+  baseURL: process.env.APP_URL ?? 'http://localhost:3000',
   basePath: '/api/auth',
   trustedOrigins: [
-    'http://localhost:8080',
-    ...(process.env.EXTRA_TRUSTED_ORIGINS?.split(',') ?? []),
+    ...(process.env.WIKI_ORIGIN?.split(',') ?? ['http://localhost:8080']),
   ],
   advanced: {
-    useSecureCookies: process.env.BETTER_AUTH_URL?.startsWith('https://') ?? false,
+    useSecureCookies: process.env.APP_URL?.startsWith('https://') ?? false,
     defaultCookieAttributes: {
-      sameSite: (process.env.BETTER_AUTH_URL?.startsWith('https://') ? 'none' : 'lax') as 'none' | 'lax',
-      secure: process.env.BETTER_AUTH_URL?.startsWith('https://') ?? false,
+      sameSite: (process.env.APP_URL?.startsWith('https://') ? 'none' : 'lax') as 'none' | 'lax',
+      secure: process.env.APP_URL?.startsWith('https://') ?? false,
     },
   },
 
@@ -82,6 +81,7 @@ export const auth = betterAuth({
         .enqueueProvision({
           type: 'provision',
           jobId: `provision-${userId}`,
+          userId,
           enqueuedAt: new Date().toISOString(),
         })
         .catch((err) => log.error({ userId, err }, 'failed to enqueue provision'))

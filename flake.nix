@@ -190,8 +190,9 @@ PGCONF
           preflight_port "core" 3000
 
           echo "core:     starting..."
-          (cd "$PROJECT_ROOT" && pnpm --filter @robin/core dev >> "$CORE_LOG" 2>&1) &
+          (cd "$PROJECT_ROOT" && pnpm --filter @robin/core dev) < /dev/null >> "$CORE_LOG" 2>&1 &
           echo $! > "$CORE_PID"
+          disown %+ 2>/dev/null || true
           verify_spawn "core" "$CORE_PID" 3000 "$CORE_LOG" 15
           wait_healthy "core" http://localhost:3000/health "$CORE_LOG" 15
           echo "core:     ready (pid $(cat "$CORE_PID"))"
@@ -205,8 +206,9 @@ PGCONF
           preflight_port "wiki" 8080
 
           echo "wiki:     starting..."
-          (cd "$PROJECT_ROOT" && PORT=8080 pnpm --filter @robin/wiki dev >> "$WIKI_LOG" 2>&1) &
+          (cd "$PROJECT_ROOT" && PORT=8080 pnpm --filter @robin/wiki dev) < /dev/null >> "$WIKI_LOG" 2>&1 &
           echo $! > "$WIKI_PID"
+          disown %+ 2>/dev/null || true
           verify_spawn "wiki" "$WIKI_PID" 8080 "$WIKI_LOG" 20
           wait_healthy "wiki" http://localhost:8080 "$WIKI_LOG" 60
           echo "wiki:     ready (pid $(cat "$WIKI_PID"))"
