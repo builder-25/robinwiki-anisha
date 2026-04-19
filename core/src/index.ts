@@ -29,6 +29,7 @@ import { bullBoardApp } from './routes/bull-board.js'
 import { adminRoutes } from './routes/admin.js'
 import { authRecoverRoutes } from './routes/auth-recover.js'
 import { checkOpenRouterKey } from './bootstrap/check-openrouter-key.js'
+import { ensurePgvector } from './bootstrap/ensure-pgvector.js'
 import { runMigrations } from './bootstrap/run-migrations.js'
 import { seedWikiTypes } from './bootstrap/seed-wiki-types.js'
 import { loadMasterKey } from './lib/crypto.js'
@@ -129,6 +130,13 @@ app.route('/ai', aiModelsRoutes)
 
 // Fail fast on missing MASTER_KEY before any crypto ops run
 loadMasterKey()
+
+// Ensure pgvector exists before migrations — some tables reference the type.
+// Best-effort: logs a warning and continues if the DB role lacks CREATE EXTENSION,
+// so the actual migration failure surfaces as the real error.
+await ensurePgvector().catch((err) => {
+  logger.warn({ err }, 'ensure-pgvector failed — continuing, migrations may fail')
+})
 
 // Apply pending migrations before any code touches the schema.
 // runMigrations is idempotent and safe to call on every boot.
