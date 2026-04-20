@@ -1,0 +1,96 @@
+# 09 — Fragment CRUD
+
+## What it proves
+Fragment create, list, get, update, content-hash dedup.
+
+```bash
+#!/usr/bin/env bash
+set -uo pipefail
+cd "${PROJECT_ROOT:-.}"
+source core/.env 2>/dev/null || true
+
+SERVER_URL="${SERVER_URL:-http://localhost:3000}"
+DB_URL="${DATABASE_URL:-postgresql://postgres@127.0.0.1:5432/robinwiki}"
+COOKIE_JAR=$(mktemp /tmp/uat-cookies-XXXXXX.txt)
+trap 'rm -f "$COOKIE_JAR"' EXIT
+
+PASS=0; FAIL=0
+pass() { PASS=$((PASS+1)); echo "  ✓ $1"; }
+fail() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
+
+echo "09 — Fragment CRUD"
+echo ""
+
+# Sign in
+curl -s -c "$COOKIE_JAR" -X POST \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://localhost:3000" \
+  -d "{\"email\":\"$INITIAL_USERNAME\",\"password\":\"$INITIAL_PASSWORD\"}" \
+  "$SERVER_URL/api/auth/sign-in/email" >/dev/null
+
+# Need an entry for entryId — create one
+ENTRY=$(curl -s -X POST -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://localhost:3000" \
+  -d '{"content":"UAT fragment test entry"}' \
+  "$SERVER_URL/entries")
+ENTRY_ID=$(echo "$ENTRY" | jq -r '.id // .lookupKey // ""')
+
+# 1. Create fragment
+CREATE=$(curl -s -w "\n%{http_code}" -X POST -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://localhost:3000" \
+  -d "{\"title\":\"UAT Test Fragment\",\"content\":\"Unique content for dedup test\",\"entryId\":\"$ENTRY_ID\",\"tags\":[\"uat\",\"test\"]}" \
+  "$SERVER_URL/fragments")
+CREATE_HTTP=$(echo "$CREATE" | tail -1)
+CREATE_BODY=$(echo "$CREATE" | sed '$d')
+FRAG_ID=$(echo "$CREATE_BODY" | jq -r '.lookupKey // .id // ""')
+
+[ "$CREATE_HTTP" = "201" ] && pass "POST /fragments → 201, id=$FRAG_ID" || fail "POST /fragments → HTTP $CREATE_HTTP"
+
+# 2. List
+LIST_HTTP=$(curl -s -o /tmp/uat-frags.json -w "%{http_code}" \
+  -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" \
+  "$SERVER_URL/fragments")
+[ "$LIST_HTTP" = "200" ] && pass "GET /fragments → 200" || fail "GET /fragments → HTTP $LIST_HTTP"
+
+# 3. Get detail
+DETAIL_HTTP=$(curl -s -o /tmp/uat-frag-detail.json -w "%{http_code}" \
+  -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" \
+  "$SERVER_URL/fragments/$FRAG_ID")
+if [ "$DETAIL_HTTP" = "200" ]; then
+  HAS_CONTENT=$(jq 'has("content")' /tmp/uat-frag-detail.json 2>/dev/null)
+  HAS_TAGS=$(jq 'has("tags")' /tmp/uat-frag-detail.json 2>/dev/null)
+  [ "$HAS_CONTENT" = "true" ] && pass "detail has content" || fail "detail missing content"
+  [ "$HAS_TAGS" = "true" ] && pass "detail has tags" || fail "detail missing tags"
+else
+  fail "GET /fragments/:id → HTTP $DETAIL_HTTP"
+fi
+
+# 4. Update
+UPDATE_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+  -X PUT -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://localhost:3000" \
+  -d '{"title":"UAT Fragment Updated","tags":["uat","updated"]}' \
+  "$SERVER_URL/fragments/$FRAG_ID")
+[ "$UPDATE_HTTP" = "200" ] && pass "PUT /fragments/:id → 200" || fail "PUT → HTTP $UPDATE_HTTP"
+
+# Verify update
+UPDATED_TITLE=$(curl -s -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" \
+  "$SERVER_URL/fragments/$FRAG_ID" | jq -r '.title')
+[ "$UPDATED_TITLE" = "UAT Fragment Updated" ] && pass "title updated" || fail "title: $UPDATED_TITLE"
+
+# 5. Dedup — re-POST same content
+ORIGINAL_CONTENT=$(jq -r '.content' /tmp/uat-frag-detail.json 2>/dev/null)
+DEDUP=$(curl -s -w "\n%{http_code}" -X POST -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://localhost:3000" \
+  -d "{\"title\":\"Duplicate\",\"content\":\"$ORIGINAL_CONTENT\",\"entryId\":\"$ENTRY_ID\"}" \
+  "$SERVER_URL/fragments")
+DEDUP_HTTP=$(echo "$DEDUP" | tail -1)
+[ "$DEDUP_HTTP" = "200" ] && pass "dedup returns 200 (not 201)" || fail "dedup returned $DEDUP_HTTP (expected 200)"
+
+echo ""
+echo "$PASS passed, $FAIL failed"
+```
