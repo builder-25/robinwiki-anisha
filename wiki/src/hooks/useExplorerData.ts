@@ -26,7 +26,7 @@ function capitalize(s: string): string {
 }
 
 export function useExplorerData(filters: ExplorerFilters) {
-  const wikisQuery = useWikis({ limit: 200 })
+  const wikisQuery = useWikis()
   const fragmentsQuery = useFragments({ limit: 500 })
   const peopleQuery = usePeople({ limit: 500 })
   const entriesQuery = useEntries({ limit: 500 })
@@ -41,7 +41,7 @@ export function useExplorerData(filters: ExplorerFilters) {
     const result: ExplorerItem[] = []
 
     // Wikis (threads)
-    for (const wiki of wikisQuery.data?.threads ?? []) {
+    for (const wiki of wikisQuery.data?.wikis ?? []) {
       // TODO: resolve group membership when API supports it
       result.push({
         id: wiki.id,

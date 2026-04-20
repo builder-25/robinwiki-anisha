@@ -216,12 +216,11 @@ export default function WikiSearchResults({ query }: { query: string }) {
   }, [urlFilter]);
 
   const results = useMemo<SearchResultItem[]>(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated types are stale; runtime shape differs
-    return (searchQuery.data?.results ?? []).map((r: any) => ({
-      id: r.id ?? r.fragmentId,
-      type: r.type ?? "fragment",
+    return (searchQuery.data?.results ?? []).map((r) => ({
+      id: r.id,
+      type: r.type,
       title: r.title,
-      snippet: r.snippet ?? r.fragment ?? "",
+      snippet: r.snippet,
       score: r.score,
     }));
   }, [searchQuery.data]);

@@ -77,7 +77,7 @@ function useEntriesData(): SidebarSectionData {
 function useContentsData(): SidebarSectionData {
   const { data } = useWikis();
   const items = useMemo<NavItem[]>(() => {
-    const threads = data?.threads;
+    const threads = data?.wikis;
     if (!threads || threads.length === 0) return [];
 
     const grouped = new Map<string, { label: string; href: string }[]>();

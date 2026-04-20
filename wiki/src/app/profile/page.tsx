@@ -68,7 +68,7 @@ export default function ProfilePage() {
   const profileQuery = useProfile();
   const statsQuery = useStats();
   const modelPrefs = useModelPreferences();
-  const wikisQuery = useWikis({ limit: 200 });
+  const wikisQuery = useWikis();
   const regenerateWiki = useRegenerateWiki();
   const logout = useLogout();
   const [copied, setCopied] = useState(false);
@@ -116,7 +116,7 @@ export default function ProfilePage() {
   };
 
   const handleRegenerate = async () => {
-    const wikis = wikisQuery.data?.threads;
+    const wikis = wikisQuery.data?.wikis;
     if (!wikis?.length) return;
     setRegenStatus("running");
     try {
@@ -370,7 +370,7 @@ export default function ProfilePage() {
                   variant="outline"
                   size="sm"
                   className="gap-1.5"
-                  disabled={regenStatus === "running" || !wikisQuery.data?.threads?.length}
+                  disabled={regenStatus === "running" || !wikisQuery.data?.wikis?.length}
                   onClick={handleRegenerate}
                 >
                   <RefreshCw className={cn("size-3.5", regenStatus === "running" && "animate-spin")} strokeWidth={1.5} />

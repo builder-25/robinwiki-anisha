@@ -4,7 +4,7 @@ A living summary of what Robin is becoming, updated after each phase.
 
 ## Where Robin Is Today
 
-**M3-M10 complete (2026-04-16).** Robin is a full knowledge base platform. Capture a thought via MCP or API → the pipeline extracts fragments, finds people, classifies into wikis → Quill regenerates wiki content → hybrid search finds anything → publish wikis to the web with a stable URL. 111/111 UAT asserts passing.
+**Wiki UAT remediation complete (2026-04-20).** Robin is a full knowledge base platform with a functional web frontend. Capture a thought via MCP or API → the pipeline extracts fragments, finds people, classifies into wikis → Quill regenerates wiki content → hybrid search finds anything → publish wikis to the web with a stable URL. 142/142 UAT asserts passing. Wiki frontend wired to all API endpoints, auth hardened, mock data purged.
 
 The system ships 15 MCP tools, 61 REST endpoints, hybrid BM25+pgvector search, an append-only audit trail on all 31 write paths, and a Next.js frontend integrated into the monorepo.
 
@@ -40,6 +40,8 @@ The system ships 15 MCP tools, 61 REST endpoints, hybrid BM25+pgvector search, a
 | M9 | Audit Log | 2026-04-15 | Structured audit on 31 write paths, timeline endpoints, MCP tool |
 | M10 | Trust Gates | 2026-04-15 | Fragment confidence, source metadata, people aggregation, reader agent, wiki spawn |
 
+| — | Wiki UAT Remediation | 2026-04-20 | 22 UAT failures → 0. Auth guards, 401 interceptor, markdown rendering, wiki delete, fragment accept/reject, sidebar/entries wired to API, 2,452 lines dead code purged |
+
 **Deferred:** M8 (Deploy & Ship) — plan exists at `docs/plans/m8-deploy.md`
 
 ## Active Items
@@ -47,7 +49,11 @@ The system ships 15 MCP tools, 61 REST endpoints, hybrid BM25+pgvector search, a
 | Item | Severity | Since | Notes |
 |------|----------|-------|-------|
 | No production deployment | High | M8 deferred | Plan exists. Docker + Railway/Render templates needed. |
-| Frontend E2E untested against real backend | High | M7 | API wiring PRs merged but not smoke-tested against running server |
+| Frontend E2E untested against real backend | Medium | M7 | API wiring done, 142/142 UAT passing. But no component tests or session-expiry E2E test. |
+| Generated OpenAPI client types stale | High | UAT Sprint | Search types wrong, `(r: any)` casts used. Need `pnpm generate` pass. |
+| Fragment hard-delete missing | Medium | UAT Sprint | No `DELETE /fragments/:id` backend endpoint. Only `rejectFragment` (soft, review-mode). |
+| Explorer won't scale past ~1K items | Medium | UAT Sprint | Fetches all wikis(200)+fragments(500)+people(500)+entries(500) on mount. Needs server pagination. |
+| No automated frontend tests | High | UAT Sprint | Zero component or integration tests. One bad merge regresses silently. |
 | Vault removal PR (#54) pending merge | Medium | M10 | Groups successor built, validation passed 19/21, fixes committed |
 | Stale test fixtures (thread→wiki rename) | Low | M3 | content-write/read tests reference old column names |
 | OpenAPI spec may drift again | Low | M6 | Generator script updated but no CI enforcement |
@@ -73,4 +79,4 @@ The system ships 15 MCP tools, 61 REST endpoints, hybrid BM25+pgvector search, a
 
 ---
 
-*Updated 2026-04-16 after M3-M10 retro. Detail in `phase-m3-m10-wiki-system.md`.*
+*Updated 2026-04-20 after Wiki UAT Remediation sprint. Detail in `phase-wiki-uat-remediation.md`.*

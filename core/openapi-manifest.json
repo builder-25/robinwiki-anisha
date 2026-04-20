@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generatedAt": "2026-04-15T10:38:05.692Z",
+    "generatedAt": "2026-04-20T20:02:10.873Z",
     "description": "Route + JSON Schema manifest for OpenAPI generation. Feed to /apidoc.",
-    "schemaCount": 67,
-    "routeCount": 61
+    "schemaCount": 58,
+    "routeCount": 54
   },
   "info": {
     "title": "Robin API",
@@ -579,6 +579,34 @@
       }
     },
     {
+      "method": "PUT",
+      "path": "/wikis/{id}/progress",
+      "operationId": "updateWikiProgress",
+      "summary": "Update wiki progress milestones",
+      "tags": [
+        "Wikis"
+      ],
+      "auth": "session",
+      "request": {
+        "params": {
+          "id": "lookupKey"
+        },
+        "body": {
+          "schemaName": "updateProgressBodySchema"
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Updated progress",
+          "schemaName": "updateProgressResponseSchema"
+        },
+        "404": {
+          "description": "Not found",
+          "schemaName": "errorResponseSchema"
+        }
+      }
+    },
+    {
       "method": "GET",
       "path": "/wiki-types",
       "operationId": "listWikiTypes",
@@ -823,181 +851,6 @@
       "responses": {
         "501": {
           "description": "Not implemented",
-          "schemaName": "errorResponseSchema"
-        }
-      }
-    },
-    {
-      "method": "GET",
-      "path": "/vaults",
-      "operationId": "listVaults",
-      "summary": "List all vaults",
-      "tags": [
-        "Vaults"
-      ],
-      "auth": "session",
-      "responses": {
-        "200": {
-          "description": "List of vaults",
-          "schemaName": "vaultListResponseSchema"
-        }
-      }
-    },
-    {
-      "method": "GET",
-      "path": "/vaults/{id}",
-      "operationId": "getVault",
-      "summary": "Get a vault by ID",
-      "tags": [
-        "Vaults"
-      ],
-      "auth": "session",
-      "request": {
-        "params": {
-          "id": "string"
-        }
-      },
-      "responses": {
-        "200": {
-          "description": "The vault",
-          "schemaName": "vaultResponseSchema"
-        },
-        "404": {
-          "description": "Not found",
-          "schemaName": "errorResponseSchema"
-        }
-      }
-    },
-    {
-      "method": "POST",
-      "path": "/vaults",
-      "operationId": "createVault",
-      "summary": "Create a new vault",
-      "tags": [
-        "Vaults"
-      ],
-      "auth": "session",
-      "request": {
-        "body": {
-          "schemaName": "createVaultBodySchema"
-        }
-      },
-      "responses": {
-        "201": {
-          "description": "Created vault",
-          "schemaName": "vaultResponseSchema"
-        },
-        "400": {
-          "description": "Invalid input",
-          "schemaName": "errorResponseSchema"
-        }
-      }
-    },
-    {
-      "method": "PUT",
-      "path": "/vaults/{id}",
-      "operationId": "updateVault",
-      "summary": "Update a vault",
-      "tags": [
-        "Vaults"
-      ],
-      "auth": "session",
-      "request": {
-        "params": {
-          "id": "string"
-        },
-        "body": {
-          "schemaName": "updateVaultBodySchema"
-        }
-      },
-      "responses": {
-        "200": {
-          "description": "Updated vault",
-          "schemaName": "vaultResponseSchema"
-        },
-        "404": {
-          "description": "Not found",
-          "schemaName": "errorResponseSchema"
-        }
-      }
-    },
-    {
-      "method": "PUT",
-      "path": "/vaults/{id}/profile",
-      "operationId": "updateVaultProfile",
-      "summary": "Update vault profile text",
-      "tags": [
-        "Vaults"
-      ],
-      "auth": "session",
-      "request": {
-        "params": {
-          "id": "string"
-        },
-        "body": {
-          "schemaName": "updateVaultProfileBodySchema"
-        }
-      },
-      "responses": {
-        "200": {
-          "description": "Updated vault",
-          "schemaName": "vaultResponseSchema"
-        },
-        "404": {
-          "description": "Not found",
-          "schemaName": "errorResponseSchema"
-        }
-      }
-    },
-    {
-      "method": "GET",
-      "path": "/vaults/{vaultId}/threads",
-      "operationId": "listVaultThreads",
-      "summary": "List threads in a vault",
-      "tags": [
-        "Vaults"
-      ],
-      "auth": "session",
-      "request": {
-        "params": {
-          "vaultId": "string"
-        }
-      },
-      "responses": {
-        "200": {
-          "description": "List of threads",
-          "schemaName": "threadListResponseSchema"
-        }
-      }
-    },
-    {
-      "method": "POST",
-      "path": "/vaults/{vaultId}/threads",
-      "operationId": "createVaultThread",
-      "summary": "Create a thread in a vault",
-      "tags": [
-        "Vaults"
-      ],
-      "auth": "session",
-      "request": {
-        "params": {
-          "vaultId": "string"
-        },
-        "body": {
-          "schemaName": "createThreadBodySchema"
-        }
-      },
-      "responses": {
-        "201": {
-          "description": "Created thread",
-          "schemaName": "threadResponseSchema"
-        },
-        "400": {
-          "description": "Invalid input",
-          "schemaName": "errorResponseSchema"
-        },
-        "404": {
-          "description": "Vault not found",
           "schemaName": "errorResponseSchema"
         }
       }
@@ -1402,35 +1255,6 @@
     },
     {
       "method": "POST",
-      "path": "/internal/sync-notify",
-      "operationId": "syncNotify",
-      "summary": "Gateway sync notification (HMAC)",
-      "tags": [
-        "Internal"
-      ],
-      "auth": "hmac",
-      "request": {
-        "body": {
-          "schemaName": "syncNotifyPayloadSchema"
-        }
-      },
-      "responses": {
-        "202": {
-          "description": "Sync job accepted",
-          "schemaName": "syncAcceptedResponseSchema"
-        },
-        "400": {
-          "description": "Invalid payload",
-          "schemaName": "errorResponseSchema"
-        },
-        "401": {
-          "description": "Invalid HMAC",
-          "schemaName": "errorResponseSchema"
-        }
-      }
-    },
-    {
-      "method": "POST",
       "path": "/mcp",
       "operationId": "mcpTransport",
       "summary": "MCP Streamable HTTP transport (JWT)",
@@ -1532,9 +1356,6 @@
             "type": {
               "type": "string",
               "default": "thought"
-            },
-            "vaultId": {
-              "type": "string"
             }
           },
           "required": [
@@ -1589,10 +1410,6 @@
             "source": {
               "type": "string"
             },
-            "vaultId": {
-              "type": "string",
-              "nullable": true
-            },
             "state": {
               "type": "string",
               "enum": [
@@ -1622,7 +1439,6 @@
             "content",
             "type",
             "source",
-            "vaultId",
             "state",
             "ingestStatus",
             "createdAt",
@@ -1659,10 +1475,6 @@
             },
             "source": {
               "type": "string"
-            },
-            "vaultId": {
-              "type": "string",
-              "nullable": true
             },
             "state": {
               "type": "string",
@@ -1703,7 +1515,6 @@
             "content",
             "type",
             "source",
-            "vaultId",
             "state",
             "ingestStatus",
             "createdAt",
@@ -1748,10 +1559,6 @@
                   "source": {
                     "type": "string"
                   },
-                  "vaultId": {
-                    "type": "string",
-                    "nullable": true
-                  },
                   "state": {
                     "type": "string",
                     "enum": [
@@ -1781,7 +1588,6 @@
                   "content",
                   "type",
                   "source",
-                  "vaultId",
                   "state",
                   "ingestStatus",
                   "createdAt",
@@ -1870,9 +1676,6 @@
               "type": "integer",
               "minimum": 0,
               "default": 0
-            },
-            "vaultId": {
-              "type": "string"
             }
           },
           "additionalProperties": false
@@ -1916,10 +1719,6 @@
               "type": "string",
               "nullable": true
             },
-            "vaultId": {
-              "type": "string",
-              "nullable": true
-            },
             "state": {
               "type": "string",
               "enum": [
@@ -1946,7 +1745,6 @@
             "type",
             "tags",
             "entryId",
-            "vaultId",
             "state",
             "createdAt",
             "updatedAt"
@@ -1992,10 +1790,6 @@
               "type": "string",
               "nullable": true
             },
-            "vaultId": {
-              "type": "string",
-              "nullable": true
-            },
             "state": {
               "type": "string",
               "enum": [
@@ -2025,7 +1819,6 @@
             "type",
             "tags",
             "entryId",
-            "vaultId",
             "state",
             "createdAt",
             "updatedAt",
@@ -2069,10 +1862,6 @@
               "nullable": true
             },
             "entryId": {
-              "type": "string",
-              "nullable": true
-            },
-            "vaultId": {
               "type": "string",
               "nullable": true
             },
@@ -2128,7 +1917,6 @@
             "type",
             "tags",
             "entryId",
-            "vaultId",
             "state",
             "createdAt",
             "updatedAt",
@@ -2181,10 +1969,6 @@
                     "type": "string",
                     "nullable": true
                   },
-                  "vaultId": {
-                    "type": "string",
-                    "nullable": true
-                  },
                   "state": {
                     "type": "string",
                     "enum": [
@@ -2211,7 +1995,6 @@
                   "type",
                   "tags",
                   "entryId",
-                  "vaultId",
                   "state",
                   "createdAt",
                   "updatedAt"
@@ -2256,8 +2039,10 @@
               "minLength": 3
             },
             "type": {
-              "type": "string",
-              "default": "log"
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
             },
             "prompt": {
               "type": "string"
@@ -2324,10 +2109,6 @@
                 "DIRTY"
               ]
             },
-            "vaultId": {
-              "type": "string",
-              "nullable": true
-            },
             "lastRebuiltAt": {
               "type": "string",
               "format": "date-time",
@@ -2355,6 +2136,45 @@
             "descriptor": {
               "type": "string",
               "default": ""
+            },
+            "progress": {
+              "type": "object",
+              "properties": {
+                "milestones": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "completed": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "completed"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 1,
+                  "maxItems": 50
+                },
+                "percentage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "milestones",
+                "percentage"
+              ],
+              "additionalProperties": false,
+              "nullable": true,
+              "default": null
             }
           },
           "required": [
@@ -2365,7 +2185,6 @@
             "type",
             "prompt",
             "state",
-            "vaultId",
             "lastRebuiltAt",
             "createdAt",
             "updatedAt",
@@ -2409,10 +2228,6 @@
                 "DIRTY"
               ]
             },
-            "vaultId": {
-              "type": "string",
-              "nullable": true
-            },
             "lastRebuiltAt": {
               "type": "string",
               "format": "date-time",
@@ -2441,6 +2256,45 @@
               "type": "string",
               "default": ""
             },
+            "progress": {
+              "type": "object",
+              "properties": {
+                "milestones": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "completed": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "completed"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 1,
+                  "maxItems": 50
+                },
+                "percentage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "milestones",
+                "percentage"
+              ],
+              "additionalProperties": false,
+              "nullable": true,
+              "default": null
+            },
             "wikiContent": {
               "type": "string"
             }
@@ -2453,7 +2307,6 @@
             "type",
             "prompt",
             "state",
-            "vaultId",
             "lastRebuiltAt",
             "createdAt",
             "updatedAt",
@@ -2503,10 +2356,6 @@
                       "DIRTY"
                     ]
                   },
-                  "vaultId": {
-                    "type": "string",
-                    "nullable": true
-                  },
                   "lastRebuiltAt": {
                     "type": "string",
                     "format": "date-time",
@@ -2534,6 +2383,45 @@
                   "descriptor": {
                     "type": "string",
                     "default": ""
+                  },
+                  "progress": {
+                    "type": "object",
+                    "properties": {
+                      "milestones": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "completed": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "completed"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "minItems": 1,
+                        "maxItems": 50
+                      },
+                      "percentage": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      }
+                    },
+                    "required": [
+                      "milestones",
+                      "percentage"
+                    ],
+                    "additionalProperties": false,
+                    "nullable": true,
+                    "default": null
                   }
                 },
                 "required": [
@@ -2544,7 +2432,6 @@
                   "type",
                   "prompt",
                   "state",
-                  "vaultId",
                   "lastRebuiltAt",
                   "createdAt",
                   "updatedAt",
@@ -2595,10 +2482,6 @@
                 "DIRTY"
               ]
             },
-            "vaultId": {
-              "type": "string",
-              "nullable": true
-            },
             "lastRebuiltAt": {
               "type": "string",
               "format": "date-time",
@@ -2626,6 +2509,45 @@
             "descriptor": {
               "type": "string",
               "default": ""
+            },
+            "progress": {
+              "type": "object",
+              "properties": {
+                "milestones": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "completed": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "completed"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 1,
+                  "maxItems": 50
+                },
+                "percentage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "milestones",
+                "percentage"
+              ],
+              "additionalProperties": false,
+              "nullable": true,
+              "default": null
             },
             "wikiContent": {
               "type": "string"
@@ -2685,7 +2607,6 @@
             "type",
             "prompt",
             "state",
-            "vaultId",
             "lastRebuiltAt",
             "createdAt",
             "updatedAt",
@@ -2846,6 +2767,93 @@
         }
       }
     },
+    "updateProgressBodySchema": {
+      "$ref": "#/definitions/updateProgressBodySchema",
+      "definitions": {
+        "updateProgressBodySchema": {
+          "type": "object",
+          "properties": {
+            "milestones": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "completed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "label",
+                  "completed"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 50
+            }
+          },
+          "required": [
+            "milestones"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "updateProgressResponseSchema": {
+      "$ref": "#/definitions/updateProgressResponseSchema",
+      "definitions": {
+        "updateProgressResponseSchema": {
+          "type": "object",
+          "properties": {
+            "progress": {
+              "type": "object",
+              "properties": {
+                "milestones": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "completed": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "completed"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 1,
+                  "maxItems": 50
+                },
+                "percentage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "milestones",
+                "percentage"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "progress"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
     "wikiTypeResponseSchema": {
       "$ref": "#/definitions/wikiTypeResponseSchema",
       "definitions": {
@@ -2873,6 +2881,9 @@
             "userModified": {
               "type": "boolean"
             },
+            "basedOnVersion": {
+              "type": "integer"
+            },
             "createdAt": {
               "type": "string",
               "format": "date-time"
@@ -2890,6 +2901,7 @@
             "prompt",
             "isDefault",
             "userModified",
+            "basedOnVersion",
             "createdAt",
             "updatedAt"
           ],
@@ -2929,6 +2941,9 @@
                   "userModified": {
                     "type": "boolean"
                   },
+                  "basedOnVersion": {
+                    "type": "integer"
+                  },
                   "createdAt": {
                     "type": "string",
                     "format": "date-time"
@@ -2946,6 +2961,7 @@
                   "prompt",
                   "isDefault",
                   "userModified",
+                  "basedOnVersion",
                   "createdAt",
                   "updatedAt"
                 ],
@@ -3450,226 +3466,6 @@
         }
       }
     },
-    "createVaultBodySchema": {
-      "$ref": "#/definitions/createVaultBodySchema",
-      "definitions": {
-        "createVaultBodySchema": {
-          "type": "object",
-          "properties": {
-            "name": {
-              "type": "string",
-              "minLength": 1
-            },
-            "icon": {
-              "type": "string"
-            },
-            "description": {
-              "type": "string"
-            },
-            "color": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "name"
-          ],
-          "additionalProperties": false
-        }
-      }
-    },
-    "updateVaultBodySchema": {
-      "$ref": "#/definitions/updateVaultBodySchema",
-      "definitions": {
-        "updateVaultBodySchema": {
-          "type": "object",
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "icon": {
-              "type": "string"
-            },
-            "description": {
-              "type": "string"
-            },
-            "profile": {
-              "type": "string"
-            },
-            "color": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        }
-      }
-    },
-    "updateVaultProfileBodySchema": {
-      "$ref": "#/definitions/updateVaultProfileBodySchema",
-      "definitions": {
-        "updateVaultProfileBodySchema": {
-          "type": "object",
-          "properties": {
-            "profile": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "profile"
-          ],
-          "additionalProperties": false
-        }
-      }
-    },
-    "vaultResponseSchema": {
-      "$ref": "#/definitions/vaultResponseSchema",
-      "definitions": {
-        "vaultResponseSchema": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "string"
-            },
-            "name": {
-              "type": "string"
-            },
-            "slug": {
-              "type": "string"
-            },
-            "icon": {
-              "type": "string"
-            },
-            "description": {
-              "type": "string"
-            },
-            "profile": {
-              "type": "string",
-              "nullable": true
-            },
-            "color": {
-              "type": "string"
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "user",
-                "system",
-                "inbox"
-              ]
-            },
-            "createdAt": {
-              "type": "string",
-              "format": "date-time"
-            },
-            "updatedAt": {
-              "type": "string",
-              "format": "date-time"
-            },
-            "threadCount": {
-              "type": "number",
-              "default": 0
-            },
-            "noteCount": {
-              "type": "number",
-              "default": 0
-            }
-          },
-          "required": [
-            "id",
-            "name",
-            "slug",
-            "icon",
-            "description",
-            "profile",
-            "color",
-            "type",
-            "createdAt",
-            "updatedAt"
-          ],
-          "additionalProperties": false
-        }
-      }
-    },
-    "vaultListResponseSchema": {
-      "$ref": "#/definitions/vaultListResponseSchema",
-      "definitions": {
-        "vaultListResponseSchema": {
-          "type": "object",
-          "properties": {
-            "vaults": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "slug": {
-                    "type": "string"
-                  },
-                  "icon": {
-                    "type": "string"
-                  },
-                  "description": {
-                    "type": "string"
-                  },
-                  "profile": {
-                    "type": "string",
-                    "nullable": true
-                  },
-                  "color": {
-                    "type": "string"
-                  },
-                  "type": {
-                    "type": "string",
-                    "enum": [
-                      "user",
-                      "system",
-                      "inbox"
-                    ]
-                  },
-                  "createdAt": {
-                    "type": "string",
-                    "format": "date-time"
-                  },
-                  "updatedAt": {
-                    "type": "string",
-                    "format": "date-time"
-                  },
-                  "threadCount": {
-                    "type": "number",
-                    "default": 0
-                  },
-                  "noteCount": {
-                    "type": "number",
-                    "default": 0
-                  }
-                },
-                "required": [
-                  "id",
-                  "name",
-                  "slug",
-                  "icon",
-                  "description",
-                  "profile",
-                  "color",
-                  "type",
-                  "createdAt",
-                  "updatedAt"
-                ],
-                "additionalProperties": false
-              }
-            }
-          },
-          "required": [
-            "vaults"
-          ],
-          "additionalProperties": false
-        }
-      }
-    },
     "searchQuerySchema": {
       "$ref": "#/definitions/searchQuerySchema",
       "definitions": {
@@ -3720,9 +3516,6 @@
                 "vector"
               ],
               "default": "hybrid"
-            },
-            "vaultId": {
-              "type": "string"
             }
           },
           "required": [
@@ -3938,9 +3731,6 @@
             "exportedAt": {
               "type": "string"
             },
-            "vaults": {
-              "type": "array"
-            },
             "wikis": {
               "type": "array"
             },
@@ -3953,7 +3743,6 @@
           },
           "required": [
             "exportedAt",
-            "vaults",
             "wikis",
             "fragments",
             "people"
@@ -3985,12 +3774,8 @@
                       "wiki",
                       "fragment",
                       "person",
-                      "entry",
-                      "vault"
+                      "entry"
                     ]
-                  },
-                  "vaultId": {
-                    "type": "string"
                   },
                   "size": {
                     "type": "number"
@@ -4004,7 +3789,6 @@
                   "id",
                   "label",
                   "type",
-                  "vaultId",
                   "size"
                 ],
                 "additionalProperties": false
@@ -4134,183 +3918,6 @@
         }
       }
     },
-    "fragmentWriteSchema": {
-      "$ref": "#/definitions/fragmentWriteSchema",
-      "definitions": {
-        "fragmentWriteSchema": {
-          "type": "object",
-          "properties": {
-            "frontmatter": {
-              "type": "object",
-              "properties": {
-                "title": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "tags": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "default": []
-                },
-                "vaultId": {
-                  "type": "string"
-                },
-                "wikiKeys": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "default": []
-                },
-                "personKeys": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "default": []
-                },
-                "relatedFragmentKeys": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "default": []
-                }
-              },
-              "required": [
-                "title"
-              ],
-              "additionalProperties": false
-            },
-            "body": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "frontmatter",
-            "body"
-          ],
-          "additionalProperties": false
-        }
-      }
-    },
-    "entryWriteSchema": {
-      "$ref": "#/definitions/entryWriteSchema",
-      "definitions": {
-        "entryWriteSchema": {
-          "type": "object",
-          "properties": {
-            "frontmatter": {
-              "type": "object",
-              "properties": {
-                "title": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "tags": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "default": []
-                }
-              },
-              "required": [
-                "title"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "required": [
-            "frontmatter"
-          ],
-          "additionalProperties": false
-        }
-      }
-    },
-    "wikiWriteSchema": {
-      "$ref": "#/definitions/wikiWriteSchema",
-      "definitions": {
-        "wikiWriteSchema": {
-          "type": "object",
-          "properties": {
-            "frontmatter": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "type": {
-                  "type": "string"
-                },
-                "prompt": {
-                  "type": "string"
-                },
-                "vaultId": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "name"
-              ],
-              "additionalProperties": false
-            },
-            "body": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "frontmatter",
-            "body"
-          ],
-          "additionalProperties": false
-        }
-      }
-    },
-    "personWriteSchema": {
-      "$ref": "#/definitions/personWriteSchema",
-      "definitions": {
-        "personWriteSchema": {
-          "type": "object",
-          "properties": {
-            "frontmatter": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "relationship": {
-                  "type": "string"
-                },
-                "aliases": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "default": []
-                }
-              },
-              "required": [
-                "name"
-              ],
-              "additionalProperties": false
-            },
-            "body": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "frontmatter",
-            "body"
-          ],
-          "additionalProperties": false
-        }
-      }
-    },
     "retryStuckDryRunResponseSchema": {
       "$ref": "#/definitions/retryStuckDryRunResponseSchema",
       "definitions": {
@@ -4391,86 +3998,6 @@
             "enqueued",
             "errors",
             "minutes"
-          ],
-          "additionalProperties": false
-        }
-      }
-    },
-    "syncNotifyPayloadSchema": {
-      "$ref": "#/definitions/syncNotifyPayloadSchema",
-      "definitions": {
-        "syncNotifyPayloadSchema": {
-          "type": "object",
-          "properties": {
-            "userId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "commitHash": {
-              "type": "string"
-            },
-            "files": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "path": {
-                    "type": "string"
-                  },
-                  "operation": {
-                    "type": "string",
-                    "enum": [
-                      "add",
-                      "modify",
-                      "delete"
-                    ]
-                  },
-                  "content": {
-                    "type": "string"
-                  },
-                  "frontmatterHash": {
-                    "type": "string"
-                  },
-                  "bodyHash": {
-                    "type": "string"
-                  },
-                  "contentHash": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "path",
-                  "operation",
-                  "content"
-                ],
-                "additionalProperties": false
-              }
-            }
-          },
-          "required": [
-            "userId",
-            "commitHash",
-            "files"
-          ],
-          "additionalProperties": false
-        }
-      }
-    },
-    "syncAcceptedResponseSchema": {
-      "$ref": "#/definitions/syncAcceptedResponseSchema",
-      "definitions": {
-        "syncAcceptedResponseSchema": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "accepted"
-              ]
-            }
-          },
-          "required": [
-            "status"
           ],
           "additionalProperties": false
         }

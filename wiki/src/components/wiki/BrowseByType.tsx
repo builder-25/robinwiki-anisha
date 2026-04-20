@@ -184,11 +184,11 @@ function CategorySection({ category }: { category: WikiCategory }) {
 
 export default function BrowseByType() {
   const wikiTypesQuery = useWikiTypesList();
-  const wikisQuery = useWikis({ limit: 200 });
+  const wikisQuery = useWikis();
 
   const categories = useMemo<WikiCategory[]>(() => {
     const types = wikiTypesQuery.data?.wikiTypes ?? [];
-    const threads = wikisQuery.data?.threads ?? [];
+    const threads = wikisQuery.data?.wikis ?? [];
 
     // Group wikis by their type
     const byType = new Map<string, WikiItem[]>();

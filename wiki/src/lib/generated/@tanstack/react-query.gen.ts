@@ -2,9 +2,9 @@
 
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
-import { client } from '../client.gen';
-import { acceptFragment, createEntry, createFragment, createVault, createVaultThread, createWikiType, deleteUserAccount, deleteUserData, exportUserData, getAuditLog, getContent, getEntry, getFragment, getGraph, getHealth, getOpenApiSpec, getPerson, getPublishedWiki, getRelationships, getThread, getUserActivity, getUserKeypair, getUserProfile, getUserStats, getVault, getWiki, getWikiTimeline, getWikiType, listEntries, listEntryFragments, listFragments, listPeople, listVaults, listVaultThreads, listWikis, listWikiTypes, markOnboarded, mcpTransport, mergeThreads, mergeWikis, type Options, publishWiki, regenerateMcpEndpoint, regeneratePerson, regenerateThread, regenerateWiki, rejectFragment, retryStuckFragments, search, setupWikiTypes, syncNotify, toggleBouncerMode, toggleRegenerate, unpublishWiki, updateContent, updateFragment, updatePerson, updateThread, updateVault, updateVaultProfile, updateWiki, updateWikiType } from '../sdk.gen';
-import type { AcceptFragmentData, AcceptFragmentError, AcceptFragmentResponse, CreateEntryData, CreateEntryError, CreateEntryResponse, CreateFragmentData, CreateFragmentError, CreateFragmentResponse, CreateVaultData, CreateVaultError, CreateVaultResponse, CreateVaultThreadData, CreateVaultThreadError, CreateVaultThreadResponse, CreateWikiTypeData, CreateWikiTypeError, CreateWikiTypeResponse, DeleteUserAccountData, DeleteUserAccountResponse, DeleteUserDataData, DeleteUserDataResponse, ExportUserDataData, ExportUserDataResponse, GetAuditLogData, GetAuditLogResponse, GetContentData, GetContentError, GetContentResponse, GetEntryData, GetEntryError, GetEntryResponse, GetFragmentData, GetFragmentError, GetFragmentResponse, GetGraphData, GetGraphResponse, GetHealthData, GetOpenApiSpecData, GetPersonData, GetPersonError, GetPersonResponse, GetPublishedWikiData, GetPublishedWikiError, GetPublishedWikiResponse, GetRelationshipsData, GetRelationshipsError, GetRelationshipsResponse, GetThreadData, GetThreadError, GetThreadResponse, GetUserActivityData, GetUserActivityResponse, GetUserKeypairData, GetUserKeypairError, GetUserKeypairResponse, GetUserProfileData, GetUserProfileError, GetUserProfileResponse, GetUserStatsData, GetUserStatsResponse, GetVaultData, GetVaultError, GetVaultResponse, GetWikiData, GetWikiError, GetWikiResponse, GetWikiTimelineData, GetWikiTimelineError, GetWikiTimelineResponse, GetWikiTypeData, GetWikiTypeError, GetWikiTypeResponse, ListEntriesData, ListEntriesResponse, ListEntryFragmentsData, ListEntryFragmentsError, ListEntryFragmentsResponse, ListFragmentsData, ListFragmentsResponse, ListPeopleData, ListPeopleResponse, ListVaultsData, ListVaultsResponse, ListVaultThreadsData, ListVaultThreadsResponse, ListWikisData, ListWikisResponse, ListWikiTypesData, ListWikiTypesResponse, MarkOnboardedData, MarkOnboardedResponse, McpTransportData, McpTransportError, MergeThreadsData, MergeThreadsError, MergeWikisData, MergeWikisError, PublishWikiData, PublishWikiError, PublishWikiResponse, RegenerateMcpEndpointData, RegenerateMcpEndpointError, RegenerateMcpEndpointResponse, RegeneratePersonData, RegeneratePersonError, RegeneratePersonResponse, RegenerateThreadData, RegenerateThreadError, RegenerateThreadResponse, RegenerateWikiData, RegenerateWikiError, RegenerateWikiResponse, RejectFragmentData, RejectFragmentError, RejectFragmentResponse, RetryStuckFragmentsData, RetryStuckFragmentsResponse, SearchData, SearchError, SearchResponse, SetupWikiTypesData, SyncNotifyData, SyncNotifyError, SyncNotifyResponse, ToggleBouncerModeData, ToggleBouncerModeError, ToggleBouncerModeResponse, ToggleRegenerateData, ToggleRegenerateError, ToggleRegenerateResponse, UnpublishWikiData, UnpublishWikiError, UnpublishWikiResponse, UpdateContentData, UpdateContentError, UpdateContentResponse, UpdateFragmentData, UpdateFragmentError, UpdateFragmentResponse, UpdatePersonData, UpdatePersonError, UpdatePersonResponse, UpdateThreadData, UpdateThreadError, UpdateThreadResponse, UpdateVaultData, UpdateVaultError, UpdateVaultProfileData, UpdateVaultProfileError, UpdateVaultProfileResponse, UpdateVaultResponse, UpdateWikiData, UpdateWikiError, UpdateWikiResponse, UpdateWikiTypeData, UpdateWikiTypeError, UpdateWikiTypeResponse } from '../types.gen';
+import { client } from '../client.gen.js';
+import { acceptFragment, createEntry, createFragment, createWikiType, deleteUserAccount, deleteUserData, exportUserData, getAuditLog, getContent, getEntry, getFragment, getGraph, getHealth, getOpenApiSpec, getPerson, getPublishedWiki, getRelationships, getThread, getUserActivity, getUserKeypair, getUserProfile, getUserStats, getWiki, getWikiTimeline, getWikiType, listEntries, listEntryFragments, listFragments, listPeople, listWikis, listWikiTypes, markOnboarded, mcpTransport, mergeThreads, mergeWikis, type Options, publishWiki, regenerateMcpEndpoint, regeneratePerson, regenerateThread, regenerateWiki, rejectFragment, retryStuckFragments, search, setupWikiTypes, toggleBouncerMode, toggleRegenerate, unpublishWiki, updateContent, updateFragment, updatePerson, updateThread, updateWiki, updateWikiProgress, updateWikiType } from '../sdk.gen.js';
+import type { AcceptFragmentData, AcceptFragmentError, AcceptFragmentResponse, CreateEntryData, CreateEntryError, CreateEntryResponse, CreateFragmentData, CreateFragmentError, CreateFragmentResponse, CreateWikiTypeData, CreateWikiTypeError, CreateWikiTypeResponse, DeleteUserAccountData, DeleteUserAccountResponse, DeleteUserDataData, DeleteUserDataResponse, ExportUserDataData, ExportUserDataResponse, GetAuditLogData, GetAuditLogResponse, GetContentData, GetContentError, GetContentResponse, GetEntryData, GetEntryError, GetEntryResponse, GetFragmentData, GetFragmentError, GetFragmentResponse, GetGraphData, GetGraphResponse, GetHealthData, GetOpenApiSpecData, GetPersonData, GetPersonError, GetPersonResponse, GetPublishedWikiData, GetPublishedWikiError, GetPublishedWikiResponse, GetRelationshipsData, GetRelationshipsError, GetRelationshipsResponse, GetThreadData, GetThreadError, GetThreadResponse, GetUserActivityData, GetUserActivityResponse, GetUserKeypairData, GetUserKeypairError, GetUserKeypairResponse, GetUserProfileData, GetUserProfileError, GetUserProfileResponse, GetUserStatsData, GetUserStatsResponse, GetWikiData, GetWikiError, GetWikiResponse, GetWikiTimelineData, GetWikiTimelineError, GetWikiTimelineResponse, GetWikiTypeData, GetWikiTypeError, GetWikiTypeResponse, ListEntriesData, ListEntriesResponse, ListEntryFragmentsData, ListEntryFragmentsError, ListEntryFragmentsResponse, ListFragmentsData, ListFragmentsResponse, ListPeopleData, ListPeopleResponse, ListWikisData, ListWikisResponse, ListWikiTypesData, ListWikiTypesResponse, MarkOnboardedData, MarkOnboardedResponse, McpTransportData, McpTransportError, MergeThreadsData, MergeThreadsError, MergeWikisData, MergeWikisError, PublishWikiData, PublishWikiError, PublishWikiResponse, RegenerateMcpEndpointData, RegenerateMcpEndpointError, RegenerateMcpEndpointResponse, RegeneratePersonData, RegeneratePersonError, RegeneratePersonResponse, RegenerateThreadData, RegenerateThreadError, RegenerateThreadResponse, RegenerateWikiData, RegenerateWikiError, RegenerateWikiResponse, RejectFragmentData, RejectFragmentError, RejectFragmentResponse, RetryStuckFragmentsData, RetryStuckFragmentsResponse, SearchData, SearchError, SearchResponse, SetupWikiTypesData, ToggleBouncerModeData, ToggleBouncerModeError, ToggleBouncerModeResponse, ToggleRegenerateData, ToggleRegenerateError, ToggleRegenerateResponse, UnpublishWikiData, UnpublishWikiError, UnpublishWikiResponse, UpdateContentData, UpdateContentError, UpdateContentResponse, UpdateFragmentData, UpdateFragmentError, UpdateFragmentResponse, UpdatePersonData, UpdatePersonError, UpdatePersonResponse, UpdateThreadData, UpdateThreadError, UpdateThreadResponse, UpdateWikiData, UpdateWikiError, UpdateWikiProgressData, UpdateWikiProgressError, UpdateWikiProgressResponse, UpdateWikiResponse, UpdateWikiTypeData, UpdateWikiTypeError, UpdateWikiTypeResponse } from '../types.gen.js';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -164,6 +164,62 @@ export const listFragmentsOptions = (options?: Options<ListFragmentsData>) => qu
     queryKey: listFragmentsQueryKey(options)
 });
 
+const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
+    const params = { ...queryKey[0] };
+    if (page.body) {
+        params.body = {
+            ...queryKey[0].body as any,
+            ...page.body as any
+        };
+    }
+    if (page.headers) {
+        params.headers = {
+            ...queryKey[0].headers,
+            ...page.headers
+        };
+    }
+    if (page.path) {
+        params.path = {
+            ...queryKey[0].path as any,
+            ...page.path as any
+        };
+    }
+    if (page.query) {
+        params.query = {
+            ...queryKey[0].query as any,
+            ...page.query as any
+        };
+    }
+    return params as unknown as typeof page;
+};
+
+export const listFragmentsInfiniteQueryKey = (options?: Options<ListFragmentsData>): QueryKey<Options<ListFragmentsData>> => createQueryKey('listFragments', options, true);
+
+/**
+ * List fragments
+ */
+export const listFragmentsInfiniteOptions = (options?: Options<ListFragmentsData>) => infiniteQueryOptions<ListFragmentsResponse, DefaultError, InfiniteData<ListFragmentsResponse>, QueryKey<Options<ListFragmentsData>>, number | Pick<QueryKey<Options<ListFragmentsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+// @ts-ignore
+{
+    queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<QueryKey<Options<ListFragmentsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+            query: {
+                offset: pageParam
+            }
+        };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await listFragments({
+            ...options,
+            ...params,
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listFragmentsInfiniteQueryKey(options)
+});
+
 /**
  * Create a new fragment
  */
@@ -184,7 +240,7 @@ export const createFragmentMutation = (options?: Partial<Options<CreateFragmentD
 export const getFragmentQueryKey = (options: Options<GetFragmentData>) => createQueryKey('getFragment', options);
 
 /**
- * Get a fragment by ID (includes content)
+ * Get a fragment by ID (includes content and backlinks)
  */
 export const getFragmentOptions = (options: Options<GetFragmentData>) => queryOptions<GetFragmentResponse, GetFragmentError, GetFragmentResponse, ReturnType<typeof getFragmentQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -266,62 +322,6 @@ export const listWikisOptions = (options?: Options<ListWikisData>) => queryOptio
         return data;
     },
     queryKey: listWikisQueryKey(options)
-});
-
-const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
-    const params = { ...queryKey[0] };
-    if (page.body) {
-        params.body = {
-            ...queryKey[0].body as any,
-            ...page.body as any
-        };
-    }
-    if (page.headers) {
-        params.headers = {
-            ...queryKey[0].headers,
-            ...page.headers
-        };
-    }
-    if (page.path) {
-        params.path = {
-            ...queryKey[0].path as any,
-            ...page.path as any
-        };
-    }
-    if (page.query) {
-        params.query = {
-            ...queryKey[0].query as any,
-            ...page.query as any
-        };
-    }
-    return params as unknown as typeof page;
-};
-
-export const listWikisInfiniteQueryKey = (options?: Options<ListWikisData>): QueryKey<Options<ListWikisData>> => createQueryKey('listWikis', options, true);
-
-/**
- * List wikis with pagination and fragment counts
- */
-export const listWikisInfiniteOptions = (options?: Options<ListWikisData>) => infiniteQueryOptions<ListWikisResponse, DefaultError, InfiniteData<ListWikisResponse>, QueryKey<Options<ListWikisData>>, number | Pick<QueryKey<Options<ListWikisData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
-// @ts-ignore
-{
-    queryFn: async ({ pageParam, queryKey, signal }) => {
-        // @ts-ignore
-        const page: Pick<QueryKey<Options<ListWikisData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
-            query: {
-                offset: pageParam
-            }
-        };
-        const params = createInfiniteParams(queryKey, page);
-        const { data } = await listWikis({
-            ...options,
-            ...params,
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listWikisInfiniteQueryKey(options)
 });
 
 export const getWikiQueryKey = (options: Options<GetWikiData>) => createQueryKey('getWiki', options);
@@ -506,6 +506,23 @@ export const mergeWikisMutation = (options?: Partial<Options<MergeWikisData>>): 
     return mutationOptions;
 };
 
+/**
+ * Update wiki progress milestones
+ */
+export const updateWikiProgressMutation = (options?: Partial<Options<UpdateWikiProgressData>>): UseMutationOptions<UpdateWikiProgressResponse, UpdateWikiProgressError, Options<UpdateWikiProgressData>> => {
+    const mutationOptions: UseMutationOptions<UpdateWikiProgressResponse, UpdateWikiProgressError, Options<UpdateWikiProgressData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateWikiProgress({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listWikiTypesQueryKey = (options?: Options<ListWikiTypesData>) => createQueryKey('listWikiTypes', options);
 
 /**
@@ -541,23 +558,6 @@ export const createWikiTypeMutation = (options?: Partial<Options<CreateWikiTypeD
     return mutationOptions;
 };
 
-/**
- * Seed default wiki types from YAML configs (idempotent)
- */
-export const setupWikiTypesMutation = (options?: Partial<Options<SetupWikiTypesData>>): UseMutationOptions<unknown, DefaultError, Options<SetupWikiTypesData>> => {
-    const mutationOptions: UseMutationOptions<unknown, DefaultError, Options<SetupWikiTypesData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await setupWikiTypes({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
 export const getWikiTypeQueryKey = (options: Options<GetWikiTypeData>) => createQueryKey('getWikiType', options);
 
 /**
@@ -583,6 +583,23 @@ export const updateWikiTypeMutation = (options?: Partial<Options<UpdateWikiTypeD
     const mutationOptions: UseMutationOptions<UpdateWikiTypeResponse, UpdateWikiTypeError, Options<UpdateWikiTypeData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updateWikiType({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Seed default wiki types from YAML configs (idempotent)
+ */
+export const setupWikiTypesMutation = (options?: Partial<Options<SetupWikiTypesData>>): UseMutationOptions<unknown, DefaultError, Options<SetupWikiTypesData>> => {
+    const mutationOptions: UseMutationOptions<unknown, DefaultError, Options<SetupWikiTypesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setupWikiTypes({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -725,128 +742,6 @@ export const mergeThreadsMutation = (options?: Partial<Options<MergeThreadsData>
     return mutationOptions;
 };
 
-export const listVaultsQueryKey = (options?: Options<ListVaultsData>) => createQueryKey('listVaults', options);
-
-/**
- * List all vaults
- */
-export const listVaultsOptions = (options?: Options<ListVaultsData>) => queryOptions<ListVaultsResponse, DefaultError, ListVaultsResponse, ReturnType<typeof listVaultsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listVaults({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listVaultsQueryKey(options)
-});
-
-/**
- * Create a new vault
- */
-export const createVaultMutation = (options?: Partial<Options<CreateVaultData>>): UseMutationOptions<CreateVaultResponse, CreateVaultError, Options<CreateVaultData>> => {
-    const mutationOptions: UseMutationOptions<CreateVaultResponse, CreateVaultError, Options<CreateVaultData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createVault({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const getVaultQueryKey = (options: Options<GetVaultData>) => createQueryKey('getVault', options);
-
-/**
- * Get a vault by ID
- */
-export const getVaultOptions = (options: Options<GetVaultData>) => queryOptions<GetVaultResponse, GetVaultError, GetVaultResponse, ReturnType<typeof getVaultQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getVault({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getVaultQueryKey(options)
-});
-
-/**
- * Update a vault
- */
-export const updateVaultMutation = (options?: Partial<Options<UpdateVaultData>>): UseMutationOptions<UpdateVaultResponse, UpdateVaultError, Options<UpdateVaultData>> => {
-    const mutationOptions: UseMutationOptions<UpdateVaultResponse, UpdateVaultError, Options<UpdateVaultData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateVault({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Update vault profile text
- */
-export const updateVaultProfileMutation = (options?: Partial<Options<UpdateVaultProfileData>>): UseMutationOptions<UpdateVaultProfileResponse, UpdateVaultProfileError, Options<UpdateVaultProfileData>> => {
-    const mutationOptions: UseMutationOptions<UpdateVaultProfileResponse, UpdateVaultProfileError, Options<UpdateVaultProfileData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateVaultProfile({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const listVaultThreadsQueryKey = (options: Options<ListVaultThreadsData>) => createQueryKey('listVaultThreads', options);
-
-/**
- * List threads in a vault
- */
-export const listVaultThreadsOptions = (options: Options<ListVaultThreadsData>) => queryOptions<ListVaultThreadsResponse, DefaultError, ListVaultThreadsResponse, ReturnType<typeof listVaultThreadsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listVaultThreads({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listVaultThreadsQueryKey(options)
-});
-
-/**
- * Create a thread in a vault
- */
-export const createVaultThreadMutation = (options?: Partial<Options<CreateVaultThreadData>>): UseMutationOptions<CreateVaultThreadResponse, CreateVaultThreadError, Options<CreateVaultThreadData>> => {
-    const mutationOptions: UseMutationOptions<CreateVaultThreadResponse, CreateVaultThreadError, Options<CreateVaultThreadData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createVaultThread({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
 export const listPeopleQueryKey = (options?: Options<ListPeopleData>) => createQueryKey('listPeople', options);
 
 /**
@@ -947,7 +842,7 @@ export const regeneratePersonMutation = (options?: Partial<Options<RegeneratePer
 export const searchQueryKey = (options: Options<SearchData>) => createQueryKey('search', options);
 
 /**
- * Search fragments (BM25 + vector)
+ * Hybrid search across fragments, wikis, and people
  */
 export const searchOptions = (options: Options<SearchData>) => queryOptions<SearchResponse, SearchError, SearchResponse, ReturnType<typeof searchQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -1197,23 +1092,6 @@ export const retryStuckFragmentsMutation = (options?: Partial<Options<RetryStuck
     const mutationOptions: UseMutationOptions<RetryStuckFragmentsResponse, DefaultError, Options<RetryStuckFragmentsData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await retryStuckFragments({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Gateway sync notification (HMAC)
- */
-export const syncNotifyMutation = (options?: Partial<Options<SyncNotifyData>>): UseMutationOptions<SyncNotifyResponse, SyncNotifyError, Options<SyncNotifyData>> => {
-    const mutationOptions: UseMutationOptions<SyncNotifyResponse, SyncNotifyError, Options<SyncNotifyData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await syncNotify({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

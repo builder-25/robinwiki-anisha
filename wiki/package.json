@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "openapi:generate": "openapi-ts"
+    "openapi": "openapi-ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

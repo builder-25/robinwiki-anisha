@@ -1,1562 +1,1384 @@
-openapi: "3.1.0"
+openapi: 3.1.0
 info:
   title: Robin API
-  version: "0.3.0"
+  version: 0.3.0
   description: REST API for Robin.OS — a personal knowledge management system.
-
 servers:
-  - url: http://localhost:3000
-    description: Local development
-
+- url: http://localhost:3000
+  description: Local development
 security:
-  - cookieAuth: []
-
+- cookieAuth: []
 tags:
-  - name: System
-    description: Health and metadata endpoints
-  - name: Entries
-    description: Raw user captures (thoughts, notes, bookmarks)
-  - name: Fragments
-    description: AI-processed knowledge fragments
-  - name: Wikis
-    description: Wiki pages (cross-vault thread listing, detail, publish, bouncer)
-  - name: Wiki Types
-    description: Wiki type definitions and configuration
-  - name: Published
-    description: Public read-only wiki access (no auth)
-  - name: Audit
-    description: Audit log and timeline queries
-  - name: Threads
-    description: Topic threads that group related fragments (legacy alias)
-  - name: Vaults
-    description: Top-level knowledge containers
-  - name: People
-    description: Extracted person entities
-  - name: Search
-    description: Hybrid BM25 + vector search
-  - name: Graph
-    description: Knowledge graph visualization
-  - name: Relationships
-    description: Object relationship lookups
-  - name: Content
-    description: Raw/structured content read/write
-  - name: Users
-    description: User profile, stats, and account management
-  - name: Admin
-    description: Administrative operations
-  - name: Internal
-    description: Service-to-service endpoints
-  - name: MCP
-    description: Model Context Protocol transport
-
-# ─────────────────────────────────────────────────────────────────────
-# Paths
-# ─────────────────────────────────────────────────────────────────────
-
+- name: System
+- name: Entries
+- name: Fragments
+- name: Wikis
+- name: Wiki Types
+- name: Published
+- name: Audit
+- name: Threads
+- name: People
+- name: Search
+- name: Graph
+- name: Relationships
+- name: Content
+- name: Users
+- name: Admin
+- name: MCP
 paths:
-
-  # ── System ─────────────────────────────────────────────────────────
-
   /health:
     get:
       operationId: getHealth
       summary: Health check
-      tags: [System]
+      tags:
+      - System
       security: []
       responses:
-        "200":
+        '200':
           description: Server is running
-
   /openapi.json:
     get:
       operationId: getOpenApiSpec
       summary: OpenAPI specification
-      tags: [System]
+      tags:
+      - System
       security: []
       responses:
-        "200":
+        '200':
           description: The OpenAPI spec
-
-  # ── Entries ────────────────────────────────────────────────────────
-
   /entries:
     post:
       operationId: createEntry
       summary: Create a new entry (queues async processing)
-      tags: [Entries]
+      tags:
+      - Entries
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/createEntryBodySchema"
+              $ref: '#/components/schemas/createEntryBodySchema'
       responses:
-        "202":
+        '202':
           description: Entry created and queued
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/entryCreatedResponseSchema"
-        "400":
+                $ref: '#/components/schemas/entryCreatedResponseSchema'
+        '400':
           description: Invalid input
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
+                $ref: '#/components/schemas/errorResponseSchema'
     get:
       operationId: listEntries
       summary: List recent entries
-      tags: [Entries]
+      tags:
+      - Entries
       parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
       responses:
-        "200":
+        '200':
           description: List of entries
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/entryListResponseSchema"
-
+                $ref: '#/components/schemas/entryListResponseSchema'
   /entries/{id}:
     get:
       operationId: getEntry
       summary: Get an entry by ID
-      tags: [Entries]
+      tags:
+      - Entries
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: The entry
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/entryResponseSchema"
-        "404":
+                $ref: '#/components/schemas/entryResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /entries/{id}/fragments:
     get:
       operationId: listEntryFragments
       summary: Get all fragments derived from an entry
-      tags: [Entries]
+      tags:
+      - Entries
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Fragments for this entry
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/fragmentListResponseSchema"
-        "404":
+                $ref: '#/components/schemas/fragmentListResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Fragments ──────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /fragments:
     get:
       operationId: listFragments
       summary: List fragments
-      tags: [Fragments]
+      tags:
+      - Fragments
       parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
       responses:
-        "200":
+        '200':
           description: List of fragments
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/fragmentListResponseSchema"
+                $ref: '#/components/schemas/fragmentListResponseSchema'
     post:
       operationId: createFragment
       summary: Create a new fragment
-      tags: [Fragments]
+      tags:
+      - Fragments
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/createFragmentBodySchema"
+              $ref: '#/components/schemas/createFragmentBodySchema'
       responses:
-        "201":
+        '201':
           description: Created fragment
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/fragmentWithContentResponseSchema"
-        "400":
+                $ref: '#/components/schemas/fragmentWithContentResponseSchema'
+        '400':
           description: Invalid input
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /fragments/{id}:
     get:
       operationId: getFragment
-      summary: Get a fragment by ID (includes content)
-      tags: [Fragments]
+      summary: Get a fragment by ID (includes content and backlinks)
+      tags:
+      - Fragments
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
-          description: Fragment with content
+        '200':
+          description: Fragment with content and backlinks
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/fragmentWithContentResponseSchema"
-        "404":
+                $ref: '#/components/schemas/fragmentDetailResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
+                $ref: '#/components/schemas/errorResponseSchema'
     put:
       operationId: updateFragment
       summary: Update a fragment
-      tags: [Fragments]
+      tags:
+      - Fragments
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/updateFragmentBodySchema"
+              $ref: '#/components/schemas/updateFragmentBodySchema'
       responses:
-        "200":
+        '200':
           description: Updated fragment
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/fragmentResponseSchema"
-        "404":
+                $ref: '#/components/schemas/fragmentResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /fragments/{id}/accept:
     post:
       operationId: acceptFragment
       summary: Accept fragment into a review-mode wiki
-      tags: [Fragments]
+      tags:
+      - Fragments
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/fragmentReviewBodySchema"
+              $ref: '#/components/schemas/fragmentReviewBodySchema'
       responses:
-        "200":
+        '200':
           description: Fragment accepted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/okResponseSchema"
-        "400":
+                $ref: '#/components/schemas/okResponseSchema'
+        '400':
           description: Wiki not in review mode
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-        "404":
+                $ref: '#/components/schemas/errorResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /fragments/{id}/reject:
     post:
       operationId: rejectFragment
       summary: Reject fragment from a review-mode wiki
-      tags: [Fragments]
+      tags:
+      - Fragments
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/fragmentReviewBodySchema"
+              $ref: '#/components/schemas/fragmentReviewBodySchema'
       responses:
-        "200":
+        '200':
           description: Fragment rejected
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/okResponseSchema"
-        "400":
+                $ref: '#/components/schemas/okResponseSchema'
+        '400':
           description: Wiki not in review mode
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-        "404":
+                $ref: '#/components/schemas/errorResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Wikis ─────────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /wikis:
     get:
       operationId: listWikis
       summary: List wikis with pagination and fragment counts
-      tags: [Wikis]
-      parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            minimum: 0
-            default: 0
-        - name: type
-          in: query
-          description: Filter by wiki type slug (e.g. belief, log, project)
-          required: false
-          schema:
-            type: string
+      tags:
+      - Wikis
       responses:
-        "200":
+        '200':
           description: List of wikis
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/threadListResponseSchema"
-
+                $ref: '#/components/schemas/threadListResponseSchema'
   /wikis/{id}:
     get:
       operationId: getWiki
       summary: Get wiki detail with fragments and people
-      tags: [Wikis]
+      tags:
+      - Wikis
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Wiki detail with fragments and people
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/wikiDetailResponseSchema"
-        "404":
+                $ref: '#/components/schemas/wikiDetailResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
+                $ref: '#/components/schemas/errorResponseSchema'
     put:
       operationId: updateWiki
       summary: Update a wiki
-      tags: [Wikis]
+      tags:
+      - Wikis
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/updateThreadBodySchema"
+              $ref: '#/components/schemas/updateThreadBodySchema'
       responses:
-        "200":
+        '200':
           description: Updated wiki
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/threadResponseSchema"
-        "404":
+                $ref: '#/components/schemas/threadResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /wikis/{id}/timeline:
     get:
       operationId: getWikiTimeline
       summary: Audit timeline for a wiki and its fragments
-      tags: [Wikis]
+      tags:
+      - Wikis
       parameters:
-        - $ref: "#/components/parameters/Id"
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            minimum: 0
-            default: 0
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
       responses:
-        "200":
+        '200':
           description: Timeline events
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/auditLogResponseSchema"
-        "404":
+                $ref: '#/components/schemas/auditLogResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /wikis/{id}/bouncer:
     patch:
       operationId: toggleBouncerMode
       summary: Toggle bouncer mode (auto/review)
-      tags: [Wikis]
+      tags:
+      - Wikis
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/bouncerModeBodySchema"
+              $ref: '#/components/schemas/bouncerModeBodySchema'
       responses:
-        "200":
+        '200':
           description: Updated bouncer mode
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/bouncerModeResponseSchema"
-        "404":
+                $ref: '#/components/schemas/bouncerModeResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /wikis/{id}/regenerate:
     patch:
       operationId: toggleRegenerate
       summary: Toggle regenerate flag on a wiki
-      tags: [Wikis]
+      tags:
+      - Wikis
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/toggleRegenerateBodySchema"
+              $ref: '#/components/schemas/toggleRegenerateBodySchema'
       responses:
-        "200":
+        '200':
           description: Updated regenerate flag
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/toggleRegenerateResponseSchema"
-        "404":
+                $ref: '#/components/schemas/toggleRegenerateResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
+                $ref: '#/components/schemas/errorResponseSchema'
     post:
       operationId: regenerateWiki
       summary: Trigger on-demand wiki regeneration
-      tags: [Wikis]
+      tags:
+      - Wikis
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Regeneration result
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/okResponseSchema"
-        "400":
+                $ref: '#/components/schemas/okResponseSchema'
+        '400':
           description: Regeneration disabled
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-        "404":
+                $ref: '#/components/schemas/errorResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /wikis/{id}/publish:
     post:
       operationId: publishWiki
       summary: Publish a wiki with a stable nanoid slug
-      tags: [Wikis]
+      tags:
+      - Wikis
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Publish status
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/publishWikiResponseSchema"
-        "400":
+                $ref: '#/components/schemas/publishWikiResponseSchema'
+        '400':
           description: No content to publish
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-        "404":
+                $ref: '#/components/schemas/errorResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /wikis/{id}/unpublish:
     post:
       operationId: unpublishWiki
       summary: Unpublish a wiki (preserves slug for re-publish)
-      tags: [Wikis]
+      tags:
+      - Wikis
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Unpublish status
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/publishWikiResponseSchema"
-        "404":
+                $ref: '#/components/schemas/publishWikiResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /wikis/{targetId}/merge:
     post:
       operationId: mergeWikis
       summary: Merge wikis (not implemented)
-      tags: [Wikis]
-      parameters:
-        - name: targetId
-          in: path
-          required: true
-          schema:
-            type: string
+      tags:
+      - Wikis
       responses:
-        "501":
+        '501':
           description: Not implemented
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Wiki Types ────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
+  /wikis/{id}/progress:
+    put:
+      operationId: updateWikiProgress
+      summary: Update wiki progress milestones
+      tags:
+      - Wikis
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/updateProgressBodySchema'
+      responses:
+        '200':
+          description: Updated progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/updateProgressResponseSchema'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponseSchema'
   /wiki-types:
     get:
       operationId: listWikiTypes
       summary: List all wiki types
-      tags: [Wiki Types]
+      tags:
+      - Wiki Types
       responses:
-        "200":
+        '200':
           description: List of wiki types
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/wikiTypeListResponseSchema"
+                $ref: '#/components/schemas/wikiTypeListResponseSchema'
     post:
       operationId: createWikiType
       summary: Create a new user-defined wiki type
-      tags: [Wiki Types]
+      tags:
+      - Wiki Types
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/createWikiTypeBodySchema"
+              $ref: '#/components/schemas/createWikiTypeBodySchema'
       responses:
-        "201":
+        '201':
           description: Created wiki type
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/wikiTypeResponseSchema"
-        "409":
+                $ref: '#/components/schemas/wikiTypeResponseSchema'
+        '409':
           description: Slug conflict
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  /wiki-types/setup:
-    post:
-      operationId: setupWikiTypes
-      summary: Seed default wiki types from YAML configs (idempotent)
-      tags: [Wiki Types]
-      responses:
-        "200":
-          description: Seed result
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /wiki-types/{slug}:
     get:
       operationId: getWikiType
       summary: Get a wiki type by slug
-      tags: [Wiki Types]
+      tags:
+      - Wiki Types
       parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: The wiki type
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/wikiTypeResponseSchema"
-        "404":
+                $ref: '#/components/schemas/wikiTypeResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
+                $ref: '#/components/schemas/errorResponseSchema'
     put:
       operationId: updateWikiType
       summary: Update a wiki type
-      tags: [Wiki Types]
+      tags:
+      - Wiki Types
       parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/updateWikiTypeBodySchema"
+              $ref: '#/components/schemas/updateWikiTypeBodySchema'
       responses:
-        "200":
+        '200':
           description: Updated wiki type
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/wikiTypeResponseSchema"
-        "404":
+                $ref: '#/components/schemas/wikiTypeResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Published ─────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
+  /wiki-types/setup:
+    post:
+      operationId: setupWikiTypes
+      summary: Seed default wiki types from YAML configs (idempotent)
+      tags:
+      - Wiki Types
+      responses:
+        '200':
+          description: Seed result
   /published/wiki/{nanoid}:
     get:
       operationId: getPublishedWiki
       summary: Get a published wiki by nanoid slug (no auth)
-      tags: [Published]
+      tags:
+      - Published
       security: []
       parameters:
-        - name: nanoid
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: nanoid
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Published wiki content
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/publicWikiResponseSchema"
-        "404":
+                $ref: '#/components/schemas/publicWikiResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Audit Log ─────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /audit-log:
     get:
       operationId: getAuditLog
       summary: Query the audit log with filters
-      tags: [Audit]
+      tags:
+      - Audit
       parameters:
-        - name: entityType
-          in: query
-          schema:
-            type: string
-        - name: entityId
-          in: query
-          schema:
-            type: string
-        - name: eventType
-          in: query
-          schema:
-            type: string
-        - name: from
-          in: query
-          schema:
-            type: string
-        - name: to
-          in: query
-          schema:
-            type: string
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            minimum: 0
-            default: 0
+      - name: entityType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: entityId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: eventType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
       responses:
-        "200":
+        '200':
           description: Audit events with total count
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/auditLogResponseSchema"
-
-  # ── Threads (legacy) ──────────────────────────────────────────────
-
+                $ref: '#/components/schemas/auditLogResponseSchema'
   /threads/{id}:
     get:
       operationId: getThread
       summary: Get a thread by ID (includes wiki content)
-      tags: [Threads]
+      tags:
+      - Threads
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Thread with wiki content
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/threadWithWikiResponseSchema"
-        "404":
+                $ref: '#/components/schemas/threadWithWikiResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
+                $ref: '#/components/schemas/errorResponseSchema'
     put:
       operationId: updateThread
       summary: Update a thread
-      tags: [Threads]
+      tags:
+      - Threads
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/updateThreadBodySchema"
+              $ref: '#/components/schemas/updateThreadBodySchema'
       responses:
-        "200":
+        '200':
           description: Updated thread
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/threadResponseSchema"
-        "404":
+                $ref: '#/components/schemas/threadResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /threads/{id}/regenerate:
     post:
       operationId: regenerateThread
       summary: Trigger thread wiki regeneration
-      tags: [Threads]
+      tags:
+      - Threads
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "202":
+        '202':
           description: Job queued
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/queuedResponseSchema"
-        "404":
+                $ref: '#/components/schemas/queuedResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /threads/{targetId}/merge:
     post:
       operationId: mergeThreads
       summary: Merge threads (not implemented)
-      tags: [Threads]
-      parameters:
-        - name: targetId
-          in: path
-          required: true
-          schema:
-            type: string
+      tags:
+      - Threads
       responses:
-        "501":
+        '501':
           description: Not implemented
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Vaults ─────────────────────────────────────────────────────────
-
-  /vaults:
-    get:
-      operationId: listVaults
-      summary: List all vaults
-      tags: [Vaults]
-      responses:
-        "200":
-          description: List of vaults
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/vaultListResponseSchema"
-    post:
-      operationId: createVault
-      summary: Create a new vault
-      tags: [Vaults]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/createVaultBodySchema"
-      responses:
-        "201":
-          description: Created vault
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/vaultResponseSchema"
-        "400":
-          description: Invalid input
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  /vaults/{id}:
-    get:
-      operationId: getVault
-      summary: Get a vault by ID
-      tags: [Vaults]
-      parameters:
-        - $ref: "#/components/parameters/Id"
-      responses:
-        "200":
-          description: The vault
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/vaultResponseSchema"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-    put:
-      operationId: updateVault
-      summary: Update a vault
-      tags: [Vaults]
-      parameters:
-        - $ref: "#/components/parameters/Id"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/updateVaultBodySchema"
-      responses:
-        "200":
-          description: Updated vault
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/vaultResponseSchema"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  /vaults/{id}/profile:
-    put:
-      operationId: updateVaultProfile
-      summary: Update vault profile text
-      tags: [Vaults]
-      parameters:
-        - $ref: "#/components/parameters/Id"
-      responses:
-        "200":
-          description: Updated vault
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/vaultResponseSchema"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  /vaults/{vaultId}/threads:
-    get:
-      operationId: listVaultThreads
-      summary: List threads in a vault
-      tags: [Vaults]
-      parameters:
-        - $ref: "#/components/parameters/VaultId"
-      responses:
-        "200":
-          description: List of threads
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/threadListResponseSchema"
-    post:
-      operationId: createVaultThread
-      summary: Create a thread in a vault
-      tags: [Vaults]
-      parameters:
-        - $ref: "#/components/parameters/VaultId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/createThreadBodySchema"
-      responses:
-        "201":
-          description: Created thread
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/threadResponseSchema"
-        "400":
-          description: Invalid input
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-        "404":
-          description: Vault not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── People ─────────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /people:
     get:
       operationId: listPeople
       summary: List all people with pagination
-      tags: [People]
+      tags:
+      - People
       parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            minimum: 0
-            default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
       responses:
-        "200":
+        '200':
           description: List of people
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/personListResponseSchema"
-
+                $ref: '#/components/schemas/personListResponseSchema'
   /people/{id}:
     get:
       operationId: getPerson
       summary: Get a person by ID (includes content and backlinks)
-      tags: [People]
+      tags:
+      - People
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Person with content and backlinks
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/personDetailResponseSchema"
-        "404":
+                $ref: '#/components/schemas/personDetailResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
+                $ref: '#/components/schemas/errorResponseSchema'
     put:
       operationId: updatePerson
       summary: Update a person
-      tags: [People]
+      tags:
+      - People
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/updatePersonBodySchema"
+              $ref: '#/components/schemas/updatePersonBodySchema'
       responses:
-        "200":
+        '200':
           description: Updated person
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/personDetailResponseSchema"
-        "404":
+                $ref: '#/components/schemas/personDetailResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /people/{id}/regenerate:
     post:
       operationId: regeneratePerson
       summary: Trigger person body regeneration
-      tags: [People]
+      tags:
+      - People
       parameters:
-        - $ref: "#/components/parameters/Id"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "202":
+        '202':
           description: Job queued
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/queuedResponseSchema"
-        "404":
+                $ref: '#/components/schemas/queuedResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Search ─────────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /search:
     get:
       operationId: search
-      summary: Search fragments (BM25 + vector)
-      tags: [Search]
+      summary: Hybrid search across fragments, wikis, and people
+      tags:
+      - Search
       parameters:
-        - name: q
-          in: query
-          required: true
-          schema:
-            type: string
-            minLength: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 10
-        - name: minScore
-          in: query
-          schema:
-            type: number
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+      - name: tables
+        in: query
+        required: false
+        schema:
+          allOf:
+          - anyOf:
+            - not: {}
+            - type: string
+          - type: array
+            items:
+              type: string
+              enum:
+              - fragment
+              - wiki
+              - person
+            minItems: 1
+      - name: mode
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - hybrid
+          - bm25
+          - vector
+          default: hybrid
       responses:
-        "200":
+        '200':
           description: Search results
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/searchResponseSchema"
-        "400":
+                $ref: '#/components/schemas/searchResponseSchema'
+        '400':
           description: Missing query
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Graph ──────────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /graph:
     get:
       operationId: getGraph
       summary: Get the knowledge graph
-      tags: [Graph]
+      tags:
+      - Graph
       responses:
-        "200":
+        '200':
           description: Graph nodes and edges
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/graphResponseSchema"
-
-  # ── Relationships ──────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/graphResponseSchema'
   /relationships/{type}/{id}:
     get:
       operationId: getRelationships
       summary: Get all relationships for an object
-      tags: [Relationships]
+      tags:
+      - Relationships
       parameters:
-        - name: type
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [entry, fragment, thread, vault, person]
-        - $ref: "#/components/parameters/Id"
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Relationships grouped by edge type
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/relationshipsResponseSchema"
-        "400":
+                $ref: '#/components/schemas/relationshipsResponseSchema'
+        '400':
           description: Invalid type
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Content ────────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /api/content/{type}/{key}:
     get:
       operationId: getContent
       summary: Read raw or structured content
-      tags: [Content]
+      tags:
+      - Content
       parameters:
-        - name: type
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [fragment, entry, thread, person]
-        - name: key
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Content (raw or structured)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/contentRawResponseSchema"
-        "400":
+                $ref: '#/components/schemas/contentRawResponseSchema'
+        '400':
           description: Invalid type
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-        "404":
+                $ref: '#/components/schemas/errorResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
+                $ref: '#/components/schemas/errorResponseSchema'
     put:
       operationId: updateContent
       summary: Write structured content
-      tags: [Content]
+      tags:
+      - Content
       parameters:
-        - name: type
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [fragment, entry, thread, person]
-        - name: key
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Content updated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/okResponseSchema"
-        "400":
+                $ref: '#/components/schemas/okResponseSchema'
+        '400':
           description: Validation failed
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-        "404":
+                $ref: '#/components/schemas/errorResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Users ──────────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /users/profile:
     get:
       operationId: getUserProfile
       summary: Get current user's profile
-      tags: [Users]
+      tags:
+      - Users
       responses:
-        "200":
+        '200':
           description: User profile
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/userProfileResponseSchema"
-        "404":
+                $ref: '#/components/schemas/userProfileResponseSchema'
+        '404':
           description: Not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /users/onboard:
     patch:
       operationId: markOnboarded
       summary: Mark onboarding complete
-      tags: [Users]
+      tags:
+      - Users
       responses:
-        "200":
+        '200':
           description: Onboarding marked
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/okResponseSchema"
-
+                $ref: '#/components/schemas/okResponseSchema'
   /users/keypair:
     get:
       operationId: getUserKeypair
       summary: Get user's Ed25519 keypair
-      tags: [Users]
+      tags:
+      - Users
       responses:
-        "200":
+        '200':
           description: Keypair details
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/keypairResponseSchema"
-        "404":
+                $ref: '#/components/schemas/keypairResponseSchema'
+        '404':
           description: No keypair
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /users/stats:
     get:
       operationId: getUserStats
       summary: Get user's stats
-      tags: [Users]
+      tags:
+      - Users
       responses:
-        "200":
+        '200':
           description: User stats
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/userStatsResponseSchema"
-
+                $ref: '#/components/schemas/userStatsResponseSchema'
   /users/activity:
     get:
       operationId: getUserActivity
       summary: Get user's recent activity
-      tags: [Users]
+      tags:
+      - Users
       responses:
-        "200":
+        '200':
           description: Recent activity
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/userActivityResponseSchema"
-
+                $ref: '#/components/schemas/userActivityResponseSchema'
   /users/export:
     post:
       operationId: exportUserData
       summary: Export all user data
-      tags: [Users]
+      tags:
+      - Users
       responses:
-        "200":
+        '200':
           description: Full data export
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/exportDataResponseSchema"
-
+                $ref: '#/components/schemas/exportDataResponseSchema'
   /users/regenerate-mcp:
     post:
       operationId: regenerateMcpEndpoint
       summary: Regenerate MCP endpoint URL
-      tags: [Users]
+      tags:
+      - Users
       responses:
-        "200":
+        '200':
           description: New MCP endpoint
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/mcpEndpointResponseSchema"
-        "400":
+                $ref: '#/components/schemas/mcpEndpointResponseSchema'
+        '400':
           description: No keypair
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
+                $ref: '#/components/schemas/errorResponseSchema'
   /users/data:
     delete:
       operationId: deleteUserData
       summary: Delete all user data (keeps account)
-      tags: [Users]
+      tags:
+      - Users
       responses:
-        "200":
+        '200':
           description: Data deleted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/okResponseSchema"
-
+                $ref: '#/components/schemas/okResponseSchema'
   /users/account:
     delete:
       operationId: deleteUserAccount
       summary: Delete user account entirely
-      tags: [Users]
+      tags:
+      - Users
       responses:
-        "200":
+        '200':
           description: Account deleted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/okResponseSchema"
-
-  # ── Admin ──────────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/okResponseSchema'
   /admin/retry-stuck:
     post:
       operationId: retryStuckFragments
       summary: Re-enqueue stuck PENDING fragments
-      tags: [Admin]
+      tags:
+      - Admin
       security: []
       responses:
-        "200":
+        '200':
           description: Re-enqueue results
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/retryStuckResponseSchema"
-
-  # ── Internal ───────────────────────────────────────────────────────
-
-  /internal/sync-notify:
-    post:
-      operationId: syncNotify
-      summary: Gateway sync notification (HMAC)
-      tags: [Internal]
-      security:
-        - hmacAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/syncNotifyPayloadSchema"
-      responses:
-        "202":
-          description: Sync job accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/syncAcceptedResponseSchema"
-        "400":
-          description: Invalid payload
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-        "401":
-          description: Invalid HMAC
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── MCP ────────────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/retryStuckResponseSchema'
   /mcp:
     post:
       operationId: mcpTransport
       summary: MCP Streamable HTTP transport (JWT)
-      tags: [MCP]
-      security:
-        - mcpToken: []
+      tags:
+      - MCP
       responses:
-        "200":
+        '200':
           description: MCP protocol response
-        "401":
+        '401':
           description: Invalid token
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/errorResponseSchema"
-
-# ─────────────────────────────────────────────────────────────────────
-# Components
-# ─────────────────────────────────────────────────────────────────────
-
+                $ref: '#/components/schemas/errorResponseSchema'
 components:
-
-  # ── Security Schemes ───────────────────────────────────────────────
-
-  securitySchemes:
-    cookieAuth:
-      type: apiKey
-      in: cookie
-      name: better-auth.session_token
-      description: Session cookie set by better-auth after sign-in
-    hmacAuth:
-      type: apiKey
-      in: header
-      name: X-Signature
-      description: HMAC-SHA256 signature of request body
-    mcpToken:
-      type: apiKey
-      in: query
-      name: token
-      description: JWT token for MCP access
-
-  # ── Shared Parameters ──────────────────────────────────────────────
-
-  parameters:
-    Id:
-      name: id
-      in: path
-      required: true
-      description: Resource ID or lookup key
-      schema:
-        type: string
-    VaultId:
-      name: vaultId
-      in: path
-      required: true
-      description: Vault ID
-      schema:
-        type: string
-
-  # ── Standard Responses ─────────────────────────────────────────────
-
-  responses:
-    Unauthorized:
-      description: Authentication required
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/errorResponseSchema"
-    NotFound:
-      description: Resource not found
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/errorResponseSchema"
-
-  # ── Schemas ────────────────────────────────────────────────────────
-
   schemas:
-
-    # ── Base ───────────────────────────────────────────────────────
-
     errorResponseSchema:
       type: object
       properties:
         error:
           type: string
         fields: {}
-      required: [error]
+      required:
+      - error
       additionalProperties: false
-
     okResponseSchema:
       type: object
       properties:
         ok:
           type: boolean
-          enum: [true]
-      required: [ok]
+          enum:
+          - true
+      required:
+      - ok
       additionalProperties: false
-
     queuedResponseSchema:
       type: object
       properties:
         status:
           type: string
-          enum: [queued]
+          enum:
+          - queued
         jobId:
           type: string
-      required: [status, jobId]
+      required:
+      - status
+      - jobId
       additionalProperties: false
-
-    # ── Entries ─────────────────────────────────────────────────────
-
     createEntryBodySchema:
       type: object
       properties:
@@ -1571,11 +1393,9 @@ components:
         type:
           type: string
           default: thought
-        vaultId:
-          type: string
-      required: [content]
+      required:
+      - content
       additionalProperties: false
-
     entryListQuerySchema:
       type: object
       properties:
@@ -1585,7 +1405,6 @@ components:
           maximum: 200
           default: 50
       additionalProperties: false
-
     entryResponseSchema:
       type: object
       properties:
@@ -1593,10 +1412,7 @@ components:
           type: string
           minLength: 1
         lookupKey:
-          type: string
-          minLength: 1
-        userId:
-          type: string
+          $ref: '#/definitions/entryResponseSchema/properties/id'
         slug:
           type: string
         title:
@@ -1607,13 +1423,14 @@ components:
           type: string
         source:
           type: string
-        vaultId:
-          type: string
-          nullable: true
         state:
           type: string
-          enum: [PENDING, RESOLVED, LINKING, DIRTY]
-        repoPath:
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
+        ingestStatus:
           type: string
         createdAt:
           type: string
@@ -1621,9 +1438,19 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, lookupKey, userId, slug, title, content, type, source, vaultId, state, repoPath, createdAt, updatedAt]
+      required:
+      - id
+      - lookupKey
+      - slug
+      - title
+      - content
+      - type
+      - source
+      - state
+      - ingestStatus
+      - createdAt
+      - updatedAt
       additionalProperties: false
-
     entryCreatedResponseSchema:
       type: object
       properties:
@@ -1631,10 +1458,7 @@ components:
           type: string
           minLength: 1
         lookupKey:
-          type: string
-          minLength: 1
-        userId:
-          type: string
+          $ref: '#/definitions/entryCreatedResponseSchema/properties/id'
         slug:
           type: string
         title:
@@ -1645,13 +1469,14 @@ components:
           type: string
         source:
           type: string
-        vaultId:
-          type: string
-          nullable: true
         state:
           type: string
-          enum: [PENDING, RESOLVED, LINKING, DIRTY]
-        repoPath:
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
+        ingestStatus:
           type: string
         createdAt:
           type: string
@@ -1663,22 +1488,78 @@ components:
           type: string
         status:
           type: string
-          enum: [queued]
-      required: [id, lookupKey, userId, slug, title, content, type, source, vaultId, state, repoPath, createdAt, updatedAt, jobId, status]
+          enum:
+          - queued
+          - duplicate
+      required:
+      - id
+      - lookupKey
+      - slug
+      - title
+      - content
+      - type
+      - source
+      - state
+      - ingestStatus
+      - createdAt
+      - updatedAt
+      - jobId
+      - status
       additionalProperties: false
-
     entryListResponseSchema:
       type: object
       properties:
         entries:
           type: array
           items:
-            $ref: "#/components/schemas/entryResponseSchema"
-      required: [entries]
+            type: object
+            properties:
+              id:
+                type: string
+                minLength: 1
+              lookupKey:
+                $ref: '#/definitions/entryListResponseSchema/properties/entries/items/properties/id'
+              slug:
+                type: string
+              title:
+                type: string
+              content:
+                type: string
+              type:
+                type: string
+              source:
+                type: string
+              state:
+                type: string
+                enum:
+                - PENDING
+                - RESOLVED
+                - LINKING
+                - DIRTY
+              ingestStatus:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+              updatedAt:
+                type: string
+                format: date-time
+            required:
+            - id
+            - lookupKey
+            - slug
+            - title
+            - content
+            - type
+            - source
+            - state
+            - ingestStatus
+            - createdAt
+            - updatedAt
+            additionalProperties: false
+      required:
+      - entries
       additionalProperties: false
-
-    # ── Fragments ──────────────────────────────────────────────────
-
     createFragmentBodySchema:
       type: object
       properties:
@@ -1695,9 +1576,10 @@ components:
           items:
             type: string
           default: []
-      required: [title, entryId]
+      required:
+      - title
+      - entryId
       additionalProperties: false
-
     updateFragmentBodySchema:
       type: object
       properties:
@@ -1710,16 +1592,6 @@ components:
           items:
             type: string
       additionalProperties: false
-
-    fragmentReviewBodySchema:
-      type: object
-      properties:
-        wikiId:
-          type: string
-          minLength: 1
-      required: [wikiId]
-      additionalProperties: false
-
     fragmentListQuerySchema:
       type: object
       properties:
@@ -1732,10 +1604,7 @@ components:
           type: integer
           minimum: 0
           default: 0
-        vaultId:
-          type: string
       additionalProperties: false
-
     fragmentResponseSchema:
       type: object
       properties:
@@ -1743,10 +1612,7 @@ components:
           type: string
           minLength: 1
         lookupKey:
-          type: string
-          minLength: 1
-        userId:
-          type: string
+          $ref: '#/definitions/fragmentResponseSchema/properties/id'
         slug:
           type: string
         title:
@@ -1758,23 +1624,37 @@ components:
           type: array
           items:
             type: string
+        confidence:
+          type: number
+          nullable: true
         entryId:
           type: string
           nullable: true
         state:
           type: string
-          enum: [PENDING, RESOLVED, LINKING, DIRTY]
-        repoPath:
-          type: string
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-      required: [id, lookupKey, userId, slug, title, type, tags, entryId, state, repoPath, createdAt, updatedAt]
+      required:
+      - id
+      - lookupKey
+      - slug
+      - title
+      - type
+      - tags
+      - entryId
+      - state
+      - createdAt
+      - updatedAt
       additionalProperties: false
-
     fragmentWithContentResponseSchema:
       type: object
       properties:
@@ -1782,10 +1662,7 @@ components:
           type: string
           minLength: 1
         lookupKey:
-          type: string
-          minLength: 1
-        userId:
-          type: string
+          $ref: '#/definitions/fragmentWithContentResponseSchema/properties/id'
         slug:
           type: string
         title:
@@ -1797,14 +1674,19 @@ components:
           type: array
           items:
             type: string
+        confidence:
+          type: number
+          nullable: true
         entryId:
           type: string
           nullable: true
         state:
           type: string
-          enum: [PENDING, RESOLVED, LINKING, DIRTY]
-        repoPath:
-          type: string
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
         createdAt:
           type: string
           format: date-time
@@ -1813,55 +1695,171 @@ components:
           format: date-time
         content:
           type: string
-      required: [id, lookupKey, userId, slug, title, type, tags, entryId, state, repoPath, createdAt, updatedAt, content]
+      required:
+      - id
+      - lookupKey
+      - slug
+      - title
+      - type
+      - tags
+      - entryId
+      - state
+      - createdAt
+      - updatedAt
+      - content
       additionalProperties: false
-
     fragmentDetailResponseSchema:
-      allOf:
-        - $ref: "#/components/schemas/fragmentWithContentResponseSchema"
-        - type: object
-          properties:
-            backlinks:
-              type: array
-              items:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  name:
-                    type: string
-                  type:
-                    type: string
-                required: [id, name, type]
-                additionalProperties: false
-          required: [backlinks]
-
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+        lookupKey:
+          $ref: '#/definitions/fragmentDetailResponseSchema/properties/id'
+        slug:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: number
+          nullable: true
+        entryId:
+          type: string
+          nullable: true
+        state:
+          type: string
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        content:
+          type: string
+        backlinks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              type:
+                type: string
+            required:
+            - id
+            - name
+            - type
+            additionalProperties: false
+      required:
+      - id
+      - lookupKey
+      - slug
+      - title
+      - type
+      - tags
+      - entryId
+      - state
+      - createdAt
+      - updatedAt
+      - content
+      - backlinks
+      additionalProperties: false
     fragmentListResponseSchema:
       type: object
       properties:
         fragments:
           type: array
           items:
-            $ref: "#/components/schemas/fragmentResponseSchema"
-      required: [fragments]
+            type: object
+            properties:
+              id:
+                type: string
+                minLength: 1
+              lookupKey:
+                $ref: '#/definitions/fragmentListResponseSchema/properties/fragments/items/properties/id'
+              slug:
+                type: string
+              title:
+                type: string
+              type:
+                type: string
+                nullable: true
+              tags:
+                type: array
+                items:
+                  type: string
+              confidence:
+                type: number
+                nullable: true
+              entryId:
+                type: string
+                nullable: true
+              state:
+                type: string
+                enum:
+                - PENDING
+                - RESOLVED
+                - LINKING
+                - DIRTY
+              createdAt:
+                type: string
+                format: date-time
+              updatedAt:
+                type: string
+                format: date-time
+            required:
+            - id
+            - lookupKey
+            - slug
+            - title
+            - type
+            - tags
+            - entryId
+            - state
+            - createdAt
+            - updatedAt
+            additionalProperties: false
+      required:
+      - fragments
       additionalProperties: false
-
-    # ── Threads / Wikis ────────────────────────────────────────────
-
+    fragmentReviewBodySchema:
+      type: object
+      properties:
+        wikiId:
+          type: string
+          minLength: 1
+      required:
+      - wikiId
+      additionalProperties: false
     createThreadBodySchema:
       type: object
       properties:
         name:
           type: string
-          minLength: 1
+          minLength: 3
         type:
           type: string
-          default: log
+        description:
+          type: string
         prompt:
           type: string
-      required: [name]
+      required:
+      - name
       additionalProperties: false
-
     updateThreadBodySchema:
       type: object
       properties:
@@ -1872,7 +1870,6 @@ components:
         prompt:
           type: string
       additionalProperties: false
-
     threadResponseSchema:
       type: object
       properties:
@@ -1880,10 +1877,7 @@ components:
           type: string
           minLength: 1
         lookupKey:
-          type: string
-          minLength: 1
-        userId:
-          type: string
+          $ref: '#/definitions/threadResponseSchema/properties/id'
         slug:
           type: string
         name:
@@ -1894,12 +1888,11 @@ components:
           type: string
         state:
           type: string
-          enum: [PENDING, RESOLVED, LINKING, DIRTY]
-        repoPath:
-          type: string
-        vaultId:
-          type: string
-          nullable: true
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
         lastRebuiltAt:
           type: string
           format: date-time
@@ -1915,9 +1908,54 @@ components:
           default: 0
         lastUpdated:
           type: string
-      required: [id, lookupKey, userId, slug, name, type, prompt, state, repoPath, vaultId, lastRebuiltAt, createdAt, updatedAt, lastUpdated]
+        shortDescriptor:
+          type: string
+          default: ''
+        descriptor:
+          type: string
+          default: ''
+        progress:
+          type: object
+          properties:
+            milestones:
+              type: array
+              items:
+                type: object
+                properties:
+                  label:
+                    type: string
+                    minLength: 1
+                  completed:
+                    type: boolean
+                required:
+                - label
+                - completed
+                additionalProperties: false
+              minItems: 1
+              maxItems: 50
+            percentage:
+              type: number
+              minimum: 0
+              maximum: 100
+          required:
+          - milestones
+          - percentage
+          additionalProperties: false
+          nullable: true
+          default: null
+      required:
+      - id
+      - lookupKey
+      - slug
+      - name
+      - type
+      - prompt
+      - state
+      - lastRebuiltAt
+      - createdAt
+      - updatedAt
+      - lastUpdated
       additionalProperties: false
-
     threadWithWikiResponseSchema:
       type: object
       properties:
@@ -1925,10 +1963,7 @@ components:
           type: string
           minLength: 1
         lookupKey:
-          type: string
-          minLength: 1
-        userId:
-          type: string
+          $ref: '#/definitions/threadWithWikiResponseSchema/properties/id'
         slug:
           type: string
         name:
@@ -1939,12 +1974,11 @@ components:
           type: string
         state:
           type: string
-          enum: [PENDING, RESOLVED, LINKING, DIRTY]
-        repoPath:
-          type: string
-        vaultId:
-          type: string
-          nullable: true
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
         lastRebuiltAt:
           type: string
           format: date-time
@@ -1960,63 +1994,285 @@ components:
           default: 0
         lastUpdated:
           type: string
+        shortDescriptor:
+          type: string
+          default: ''
+        descriptor:
+          type: string
+          default: ''
+        progress:
+          type: object
+          properties:
+            milestones:
+              type: array
+              items:
+                type: object
+                properties:
+                  label:
+                    type: string
+                    minLength: 1
+                  completed:
+                    type: boolean
+                required:
+                - label
+                - completed
+                additionalProperties: false
+              minItems: 1
+              maxItems: 50
+            percentage:
+              type: number
+              minimum: 0
+              maximum: 100
+          required:
+          - milestones
+          - percentage
+          additionalProperties: false
+          nullable: true
+          default: null
         wikiContent:
           type: string
-      required: [id, lookupKey, userId, slug, name, type, prompt, state, repoPath, vaultId, lastRebuiltAt, createdAt, updatedAt, lastUpdated, wikiContent]
+      required:
+      - id
+      - lookupKey
+      - slug
+      - name
+      - type
+      - prompt
+      - state
+      - lastRebuiltAt
+      - createdAt
+      - updatedAt
+      - lastUpdated
+      - wikiContent
       additionalProperties: false
-
     threadListResponseSchema:
       type: object
       properties:
-        threads:
+        wikis:
           type: array
           items:
-            $ref: "#/components/schemas/threadResponseSchema"
-      required: [threads]
+            type: object
+            properties:
+              id:
+                type: string
+                minLength: 1
+              lookupKey:
+                $ref: '#/definitions/threadListResponseSchema/properties/wikis/items/properties/id'
+              slug:
+                type: string
+              name:
+                type: string
+              type:
+                type: string
+              prompt:
+                type: string
+              state:
+                type: string
+                enum:
+                - PENDING
+                - RESOLVED
+                - LINKING
+                - DIRTY
+              lastRebuiltAt:
+                type: string
+                format: date-time
+                nullable: true
+              createdAt:
+                type: string
+                format: date-time
+              updatedAt:
+                type: string
+                format: date-time
+              noteCount:
+                type: number
+                default: 0
+              lastUpdated:
+                type: string
+              shortDescriptor:
+                type: string
+                default: ''
+              descriptor:
+                type: string
+                default: ''
+              progress:
+                type: object
+                properties:
+                  milestones:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label:
+                          type: string
+                          minLength: 1
+                        completed:
+                          type: boolean
+                      required:
+                      - label
+                      - completed
+                      additionalProperties: false
+                    minItems: 1
+                    maxItems: 50
+                  percentage:
+                    type: number
+                    minimum: 0
+                    maximum: 100
+                required:
+                - milestones
+                - percentage
+                additionalProperties: false
+                nullable: true
+                default: null
+            required:
+            - id
+            - lookupKey
+            - slug
+            - name
+            - type
+            - prompt
+            - state
+            - lastRebuiltAt
+            - createdAt
+            - updatedAt
+            - lastUpdated
+            additionalProperties: false
+      required:
+      - wikis
       additionalProperties: false
-
     wikiDetailResponseSchema:
-      allOf:
-        - $ref: "#/components/schemas/threadWithWikiResponseSchema"
-        - type: object
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+        lookupKey:
+          $ref: '#/definitions/wikiDetailResponseSchema/properties/id'
+        slug:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        prompt:
+          type: string
+        state:
+          type: string
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
+        lastRebuiltAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        noteCount:
+          type: number
+          default: 0
+        lastUpdated:
+          type: string
+        shortDescriptor:
+          type: string
+          default: ''
+        descriptor:
+          type: string
+          default: ''
+        progress:
+          type: object
           properties:
-            fragments:
+            milestones:
               type: array
               items:
                 type: object
                 properties:
-                  id:
+                  label:
                     type: string
-                  slug:
-                    type: string
-                  title:
-                    type: string
-                  snippet:
-                    type: string
-                required: [id, slug, title, snippet]
+                    minLength: 1
+                  completed:
+                    type: boolean
+                required:
+                - label
+                - completed
                 additionalProperties: false
-            people:
-              type: array
-              items:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  name:
-                    type: string
-                required: [id, name]
-                additionalProperties: false
-          required: [fragments, people]
-
+              minItems: 1
+              maxItems: 50
+            percentage:
+              type: number
+              minimum: 0
+              maximum: 100
+          required:
+          - milestones
+          - percentage
+          additionalProperties: false
+          nullable: true
+          default: null
+        wikiContent:
+          type: string
+        fragments:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                $ref: '#/definitions/wikiDetailResponseSchema/properties/id'
+              slug:
+                type: string
+              title:
+                type: string
+              snippet:
+                type: string
+            required:
+            - id
+            - slug
+            - title
+            - snippet
+            additionalProperties: false
+        people:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                $ref: '#/definitions/wikiDetailResponseSchema/properties/id'
+              name:
+                type: string
+            required:
+            - id
+            - name
+            additionalProperties: false
+      required:
+      - id
+      - lookupKey
+      - slug
+      - name
+      - type
+      - prompt
+      - state
+      - lastRebuiltAt
+      - createdAt
+      - updatedAt
+      - lastUpdated
+      - wikiContent
+      - fragments
+      - people
+      additionalProperties: false
     bouncerModeBodySchema:
       type: object
       properties:
         mode:
           type: string
-          enum: [auto, review]
-      required: [mode]
+          enum:
+          - auto
+          - review
+      required:
+      - mode
       additionalProperties: false
-
     bouncerModeResponseSchema:
       type: object
       properties:
@@ -2025,10 +2281,13 @@ components:
           minLength: 1
         bouncerMode:
           type: string
-          enum: [auto, review]
-      required: [id, bouncerMode]
+          enum:
+          - auto
+          - review
+      required:
+      - id
+      - bouncerMode
       additionalProperties: false
-
     publishWikiResponseSchema:
       type: object
       properties:
@@ -2043,9 +2302,12 @@ components:
           nullable: true
         regenerate:
           type: boolean
-      required: [published, publishedSlug, publishedAt, regenerate]
+      required:
+      - published
+      - publishedSlug
+      - publishedAt
+      - regenerate
       additionalProperties: false
-
     publicWikiResponseSchema:
       type: object
       properties:
@@ -2058,17 +2320,20 @@ components:
           format: date-time
         content:
           type: string
-      required: [name, type, publishedAt, content]
+      required:
+      - name
+      - type
+      - publishedAt
+      - content
       additionalProperties: false
-
     toggleRegenerateBodySchema:
       type: object
       properties:
         regenerate:
           type: boolean
-      required: [regenerate]
+      required:
+      - regenerate
       additionalProperties: false
-
     toggleRegenerateResponseSchema:
       type: object
       properties:
@@ -2077,11 +2342,65 @@ components:
           minLength: 1
         regenerate:
           type: boolean
-      required: [id, regenerate]
+      required:
+      - id
+      - regenerate
       additionalProperties: false
-
-    # ── Wiki Types ─────────────────────────────────────────────────
-
+    updateProgressBodySchema:
+      type: object
+      properties:
+        milestones:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+                minLength: 1
+              completed:
+                type: boolean
+            required:
+            - label
+            - completed
+            additionalProperties: false
+          minItems: 1
+          maxItems: 50
+      required:
+      - milestones
+      additionalProperties: false
+    updateProgressResponseSchema:
+      type: object
+      properties:
+        progress:
+          type: object
+          properties:
+            milestones:
+              type: array
+              items:
+                type: object
+                properties:
+                  label:
+                    type: string
+                    minLength: 1
+                  completed:
+                    type: boolean
+                required:
+                - label
+                - completed
+                additionalProperties: false
+              minItems: 1
+              maxItems: 50
+            percentage:
+              type: number
+              minimum: 0
+              maximum: 100
+          required:
+          - milestones
+          - percentage
+          additionalProperties: false
+      required:
+      - progress
+      additionalProperties: false
     wikiTypeResponseSchema:
       type: object
       properties:
@@ -2099,31 +2418,77 @@ components:
           type: boolean
         userModified:
           type: boolean
+        basedOnVersion:
+          type: integer
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-      required: [slug, name, shortDescriptor, descriptor, prompt, isDefault, userModified, createdAt, updatedAt]
+      required:
+      - slug
+      - name
+      - shortDescriptor
+      - descriptor
+      - prompt
+      - isDefault
+      - userModified
+      - basedOnVersion
+      - createdAt
+      - updatedAt
       additionalProperties: false
-
     wikiTypeListResponseSchema:
       type: object
       properties:
         wikiTypes:
           type: array
           items:
-            $ref: "#/components/schemas/wikiTypeResponseSchema"
-      required: [wikiTypes]
+            type: object
+            properties:
+              slug:
+                type: string
+              name:
+                type: string
+              shortDescriptor:
+                type: string
+              descriptor:
+                type: string
+              prompt:
+                type: string
+              isDefault:
+                type: boolean
+              userModified:
+                type: boolean
+              basedOnVersion:
+                type: integer
+              createdAt:
+                type: string
+                format: date-time
+              updatedAt:
+                type: string
+                format: date-time
+            required:
+            - slug
+            - name
+            - shortDescriptor
+            - descriptor
+            - prompt
+            - isDefault
+            - userModified
+            - basedOnVersion
+            - createdAt
+            - updatedAt
+            additionalProperties: false
+      required:
+      - wikiTypes
       additionalProperties: false
-
     createWikiTypeBodySchema:
       type: object
       properties:
         slug:
           type: string
-          pattern: "^[a-z0-9-]+$"
+          pattern: ^[a-z0-9-]+$
         name:
           type: string
           minLength: 1
@@ -2135,10 +2500,13 @@ components:
           minLength: 1
         prompt:
           type: string
-          default: ""
-      required: [slug, name, shortDescriptor, descriptor]
+          default: ''
+      required:
+      - slug
+      - name
+      - shortDescriptor
+      - descriptor
       additionalProperties: false
-
     updateWikiTypeBodySchema:
       type: object
       properties:
@@ -2151,45 +2519,6 @@ components:
         prompt:
           type: string
       additionalProperties: false
-
-    # ── Audit ──────────────────────────────────────────────────────
-
-    auditEventSchema:
-      type: object
-      properties:
-        id:
-          type: string
-        entityType:
-          type: string
-        entityId:
-          type: string
-        eventType:
-          type: string
-        source:
-          type: string
-          nullable: true
-        summary:
-          type: string
-        detail: {}
-        createdAt:
-          type: string
-      required: [id, entityType, entityId, eventType, summary, createdAt]
-      additionalProperties: false
-
-    auditLogResponseSchema:
-      type: object
-      properties:
-        events:
-          type: array
-          items:
-            $ref: "#/components/schemas/auditEventSchema"
-        total:
-          type: number
-      required: [events, total]
-      additionalProperties: false
-
-    # ── People ─────────────────────────────────────────────────────
-
     personResponseSchema:
       type: object
       properties:
@@ -2197,22 +2526,28 @@ components:
           type: string
           minLength: 1
         lookupKey:
-          type: string
-          minLength: 1
-        userId:
-          type: string
+          $ref: '#/definitions/personResponseSchema/properties/id'
         slug:
           type: string
         name:
           type: string
         relationship:
           type: string
-        sections: {}
+        canonicalName:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        verified:
+          type: boolean
         state:
           type: string
-          enum: [PENDING, RESOLVED, LINKING, DIRTY]
-        repoPath:
-          type: string
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
         lastRebuiltAt:
           type: string
           format: date-time
@@ -2223,9 +2558,113 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, lookupKey, userId, slug, name, relationship, state, repoPath, lastRebuiltAt, createdAt, updatedAt]
+      required:
+      - id
+      - lookupKey
+      - slug
+      - name
+      - relationship
+      - canonicalName
+      - aliases
+      - verified
+      - state
+      - lastRebuiltAt
+      - createdAt
+      - updatedAt
       additionalProperties: false
-
+    personDetailResponseSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+        lookupKey:
+          $ref: '#/definitions/personDetailResponseSchema/properties/id'
+        slug:
+          type: string
+        name:
+          type: string
+        relationship:
+          type: string
+        canonicalName:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        verified:
+          type: boolean
+        state:
+          type: string
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
+        lastRebuiltAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        content:
+          type: string
+        backlinks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+            required:
+            - id
+            - title
+            additionalProperties: false
+        wikis:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              slug:
+                type: string
+              type:
+                type: string
+              fragmentCount:
+                type: number
+            required:
+            - id
+            - name
+            - slug
+            - type
+            - fragmentCount
+            additionalProperties: false
+          default: []
+      required:
+      - id
+      - lookupKey
+      - slug
+      - name
+      - relationship
+      - canonicalName
+      - aliases
+      - verified
+      - state
+      - lastRebuiltAt
+      - createdAt
+      - updatedAt
+      - content
+      - backlinks
+      additionalProperties: false
     personWithBacklinksResponseSchema:
       type: object
       properties:
@@ -2233,22 +2672,28 @@ components:
           type: string
           minLength: 1
         lookupKey:
-          type: string
-          minLength: 1
-        userId:
-          type: string
+          $ref: '#/definitions/personWithBacklinksResponseSchema/properties/id'
         slug:
           type: string
         name:
           type: string
         relationship:
           type: string
-        sections: {}
+        canonicalName:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        verified:
+          type: boolean
         state:
           type: string
-          enum: [PENDING, RESOLVED, LINKING, DIRTY]
-        repoPath:
-          type: string
+          enum:
+          - PENDING
+          - RESOLVED
+          - LINKING
+          - DIRTY
         lastRebuiltAt:
           type: string
           format: date-time
@@ -2267,39 +2712,83 @@ components:
           type: array
           items:
             type: string
-      required: [id, lookupKey, userId, slug, name, relationship, state, repoPath, lastRebuiltAt, createdAt, updatedAt, backlinkFragmentIds, backlinkThreadIds]
+      required:
+      - id
+      - lookupKey
+      - slug
+      - name
+      - relationship
+      - canonicalName
+      - aliases
+      - verified
+      - state
+      - lastRebuiltAt
+      - createdAt
+      - updatedAt
+      - backlinkFragmentIds
+      - backlinkThreadIds
       additionalProperties: false
-
     personListResponseSchema:
       type: object
       properties:
         people:
           type: array
           items:
-            $ref: "#/components/schemas/personResponseSchema"
-      required: [people]
+            type: object
+            properties:
+              id:
+                type: string
+                minLength: 1
+              lookupKey:
+                $ref: '#/definitions/personListResponseSchema/properties/people/items/properties/id'
+              slug:
+                type: string
+              name:
+                type: string
+              relationship:
+                type: string
+              canonicalName:
+                type: string
+              aliases:
+                type: array
+                items:
+                  type: string
+              verified:
+                type: boolean
+              state:
+                type: string
+                enum:
+                - PENDING
+                - RESOLVED
+                - LINKING
+                - DIRTY
+              lastRebuiltAt:
+                type: string
+                format: date-time
+                nullable: true
+              createdAt:
+                type: string
+                format: date-time
+              updatedAt:
+                type: string
+                format: date-time
+            required:
+            - id
+            - lookupKey
+            - slug
+            - name
+            - relationship
+            - canonicalName
+            - aliases
+            - verified
+            - state
+            - lastRebuiltAt
+            - createdAt
+            - updatedAt
+            additionalProperties: false
+      required:
+      - people
       additionalProperties: false
-
-    personDetailResponseSchema:
-      allOf:
-        - $ref: "#/components/schemas/personResponseSchema"
-        - type: object
-          properties:
-            content:
-              type: string
-            backlinks:
-              type: array
-              items:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  title:
-                    type: string
-                required: [id, title]
-                additionalProperties: false
-          required: [content, backlinks]
-
     updatePersonBodySchema:
       type: object
       properties:
@@ -2314,97 +2803,19 @@ components:
         content:
           type: string
       additionalProperties: false
-
-    # ── Vaults ─────────────────────────────────────────────────────
-
-    createVaultBodySchema:
+    personListQuerySchema:
       type: object
       properties:
-        name:
-          type: string
-          minLength: 1
-        icon:
-          type: string
-        description:
-          type: string
-        color:
-          type: string
-      required: [name]
-      additionalProperties: false
-
-    updateVaultBodySchema:
-      type: object
-      properties:
-        name:
-          type: string
-        icon:
-          type: string
-        description:
-          type: string
-        profile:
-          type: string
-        color:
-          type: string
-      additionalProperties: false
-
-    updateVaultProfileBodySchema:
-      type: object
-      properties:
-        profile:
-          type: string
-      required: [profile]
-      additionalProperties: false
-
-    vaultResponseSchema:
-      type: object
-      properties:
-        id:
-          type: string
-        userId:
-          type: string
-        name:
-          type: string
-        slug:
-          type: string
-        icon:
-          type: string
-        description:
-          type: string
-        profile:
-          type: string
-          nullable: true
-        color:
-          type: string
-        type:
-          type: string
-          enum: [user, system, inbox]
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        threadCount:
-          type: number
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        offset:
+          type: integer
+          minimum: 0
           default: 0
-        noteCount:
-          type: number
-          default: 0
-      required: [id, userId, name, slug, icon, description, profile, color, type, createdAt, updatedAt]
       additionalProperties: false
-
-    vaultListResponseSchema:
-      type: object
-      properties:
-        vaults:
-          type: array
-          items:
-            $ref: "#/components/schemas/vaultResponseSchema"
-      required: [vaults]
-      additionalProperties: false
-
-    # ── Search ─────────────────────────────────────────────────────
-
     searchQuerySchema:
       type: object
       properties:
@@ -2416,11 +2827,29 @@ components:
           minimum: 1
           maximum: 100
           default: 10
-        minScore:
-          type: number
-      required: [q]
+        tables:
+          allOf:
+          - anyOf:
+            - not: {}
+            - type: string
+          - type: array
+            items:
+              type: string
+              enum:
+              - fragment
+              - wiki
+              - person
+            minItems: 1
+        mode:
+          type: string
+          enum:
+          - hybrid
+          - bm25
+          - vector
+          default: hybrid
+      required:
+      - q
       additionalProperties: false
-
     searchResponseSchema:
       type: object
       properties:
@@ -2429,31 +2858,30 @@ components:
           items:
             type: object
             properties:
-              score:
-                type: number
-              fragmentId:
+              id:
                 type: string
+              type:
+                type: string
+                enum:
+                - fragment
+                - wiki
+                - person
               title:
                 type: string
-              fragment:
+              snippet:
                 type: string
-              tags:
-                type: array
-                items:
-                  type: string
-              vaultId:
-                type: string
-                nullable: true
-              threadId:
-                type: string
-                nullable: true
-            required: [score, fragmentId, title, fragment, tags]
+              score:
+                type: number
+            required:
+            - id
+            - type
+            - title
+            - snippet
+            - score
             additionalProperties: false
-      required: [results]
+      required:
+      - results
       additionalProperties: false
-
-    # ── Users ──────────────────────────────────────────────────────
-
     userProfileResponseSchema:
       type: object
       properties:
@@ -2471,9 +2899,14 @@ components:
         onboardedAt:
           type: string
           nullable: true
-      required: [id, email, name, mcpEndpointUrl, apiKeyHint, onboardedAt]
+      required:
+      - id
+      - email
+      - name
+      - mcpEndpointUrl
+      - apiKeyHint
+      - onboardedAt
       additionalProperties: false
-
     userStatsResponseSchema:
       type: object
       properties:
@@ -2487,9 +2920,13 @@ components:
           type: number
         lastSync:
           type: string
-      required: [totalNotes, totalThreads, peopleCount, unthreadedCount, lastSync]
+      required:
+      - totalNotes
+      - totalThreads
+      - peopleCount
+      - unthreadedCount
+      - lastSync
       additionalProperties: false
-
     userActivityResponseSchema:
       type: object
       properties:
@@ -2502,11 +2939,13 @@ components:
                 type: string
               time:
                 type: string
-            required: [action, time]
+            required:
+            - action
+            - time
             additionalProperties: false
-      required: [activity]
+      required:
+      - activity
       additionalProperties: false
-
     keypairResponseSchema:
       type: object
       properties:
@@ -2516,35 +2955,36 @@ components:
           type: string
         privateKey:
           type: string
-      required: [algorithm, publicKey, privateKey]
+      required:
+      - algorithm
+      - publicKey
+      - privateKey
       additionalProperties: false
-
     mcpEndpointResponseSchema:
       type: object
       properties:
         mcpEndpointUrl:
           type: string
-      required: [mcpEndpointUrl]
+      required:
+      - mcpEndpointUrl
       additionalProperties: false
-
     exportDataResponseSchema:
       type: object
       properties:
         exportedAt:
           type: string
-        vaults:
-          type: array
-        threads:
+        wikis:
           type: array
         fragments:
           type: array
         people:
           type: array
-      required: [exportedAt, vaults, threads, fragments, people]
+      required:
+      - exportedAt
+      - wikis
+      - fragments
+      - people
       additionalProperties: false
-
-    # ── Graph ──────────────────────────────────────────────────────
-
     graphResponseSchema:
       type: object
       properties:
@@ -2559,12 +2999,21 @@ components:
                 type: string
               type:
                 type: string
-                enum: [thread, fragment, person, entry, vault]
-              vaultId:
-                type: string
+                enum:
+                - wiki
+                - fragment
+                - person
+                - entry
               size:
                 type: number
-            required: [id, label, type, vaultId, size]
+              snippet:
+                type: string
+                default: ''
+            required:
+            - id
+            - label
+            - type
+            - size
             additionalProperties: false
         edges:
           type: array
@@ -2577,14 +3026,19 @@ components:
                 type: string
               edgeType:
                 type: string
-                enum: [filing, wikilink, mention]
-            required: [source, target, edgeType]
+                enum:
+                - filing
+                - wikilink
+                - mention
+            required:
+            - source
+            - target
+            - edgeType
             additionalProperties: false
-      required: [nodes, edges]
+      required:
+      - nodes
+      - edges
       additionalProperties: false
-
-    # ── Relationships ──────────────────────────────────────────────
-
     relationshipsResponseSchema:
       type: object
       properties:
@@ -2603,19 +3057,45 @@ components:
                   type: string
                 edgeType:
                   type: string
-              required: [id, type, label, edgeType]
+              required:
+              - id
+              - type
+              - label
+              - edgeType
               additionalProperties: false
-      required: [relationships]
+      required:
+      - relationships
       additionalProperties: false
-
-    # ── Admin ──────────────────────────────────────────────────────
-
+    contentRawResponseSchema:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+      - content
+      additionalProperties: false
+    contentStructuredResponseSchema:
+      type: object
+      properties:
+        frontmatter:
+          type: object
+          additionalProperties: {}
+        body:
+          type: string
+        raw:
+          type: string
+      required:
+      - frontmatter
+      - body
+      - raw
+      additionalProperties: false
     retryStuckDryRunResponseSchema:
       type: object
       properties:
         dryRun:
           type: boolean
-          enum: [true]
+          enum:
+          - true
         count:
           type: number
         fragments:
@@ -2625,15 +3105,17 @@ components:
             properties:
               fragmentKey:
                 type: string
-              userId:
-                type: string
               entryKey:
                 type: string
-            required: [fragmentKey, userId, entryKey]
+            required:
+            - fragmentKey
+            - entryKey
             additionalProperties: false
-      required: [dryRun, count, fragments]
+      required:
+      - dryRun
+      - count
+      - fragments
       additionalProperties: false
-
     retryStuckResponseSchema:
       type: object
       properties:
@@ -2648,172 +3130,124 @@ components:
                 type: string
               error:
                 type: string
-            required: [fragmentKey, error]
+            required:
+            - fragmentKey
+            - error
             additionalProperties: false
         minutes:
           type: number
-      required: [enqueued, errors, minutes]
+      required:
+      - enqueued
+      - errors
+      - minutes
       additionalProperties: false
-
-    # ── Internal ───────────────────────────────────────────────────
-
-    syncNotifyPayloadSchema:
+    auditLogResponseSchema:
       type: object
       properties:
-        userId:
-          type: string
-          minLength: 1
-        commitHash:
-          type: string
-        files:
+        events:
           type: array
           items:
             type: object
             properties:
-              path:
+              id:
                 type: string
-              operation:
+              entityType:
                 type: string
-                enum: [add, modify, delete]
-              content:
+              entityId:
                 type: string
-              frontmatterHash:
+              eventType:
                 type: string
-              bodyHash:
+              source:
                 type: string
-              contentHash:
+                nullable: true
+              summary:
                 type: string
-            required: [path, operation, content]
+              detail:
+                nullable: true
+              createdAt:
+                type: string
+            required:
+            - id
+            - entityType
+            - entityId
+            - eventType
+            - source
+            - summary
+            - createdAt
             additionalProperties: false
-      required: [userId, commitHash, files]
+        total:
+          type: number
+      required:
+      - events
+      - total
       additionalProperties: false
-
-    syncAcceptedResponseSchema:
+    auditLogQuerySchema:
       type: object
       properties:
-        status:
+        entityType:
           type: string
-          enum: [accepted]
-      required: [status]
+        entityId:
+          type: string
+        eventType:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
       additionalProperties: false
-
-    # ── Content ────────────────────────────────────────────────────
-
-    contentRawResponseSchema:
+    auditEventSchema:
       type: object
       properties:
-        content:
+        id:
           type: string
-      required: [content]
+        entityType:
+          type: string
+        entityId:
+          type: string
+        eventType:
+          type: string
+        source:
+          type: string
+          nullable: true
+        summary:
+          type: string
+        detail:
+          nullable: true
+        createdAt:
+          type: string
+      required:
+      - id
+      - entityType
+      - entityId
+      - eventType
+      - source
+      - summary
+      - createdAt
       additionalProperties: false
-
-    contentStructuredResponseSchema:
+    timelineQuerySchema:
       type: object
       properties:
-        frontmatter:
-          type: object
-          additionalProperties: {}
-        body:
-          type: string
-        raw:
-          type: string
-      required: [frontmatter, body, raw]
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
       additionalProperties: false
-
-    fragmentWriteSchema:
-      type: object
-      properties:
-        frontmatter:
-          type: object
-          properties:
-            title:
-              type: string
-              minLength: 1
-            tags:
-              type: array
-              items:
-                type: string
-              default: []
-            threadKeys:
-              type: array
-              items:
-                type: string
-              default: []
-            personKeys:
-              type: array
-              items:
-                type: string
-              default: []
-            relatedFragmentKeys:
-              type: array
-              items:
-                type: string
-              default: []
-          required: [title]
-          additionalProperties: false
-        body:
-          type: string
-      required: [frontmatter, body]
-      additionalProperties: false
-
-    entryWriteSchema:
-      type: object
-      properties:
-        frontmatter:
-          type: object
-          properties:
-            title:
-              type: string
-              minLength: 1
-            tags:
-              type: array
-              items:
-                type: string
-              default: []
-          required: [title]
-          additionalProperties: false
-      required: [frontmatter]
-      additionalProperties: false
-
-    wikiWriteSchema:
-      type: object
-      properties:
-        frontmatter:
-          type: object
-          properties:
-            name:
-              type: string
-              minLength: 1
-            type:
-              type: string
-            prompt:
-              type: string
-          required: [name]
-          additionalProperties: false
-        body:
-          type: string
-      required: [frontmatter, body]
-      additionalProperties: false
-
-    personWriteSchema:
-      type: object
-      properties:
-        frontmatter:
-          type: object
-          properties:
-            name:
-              type: string
-              minLength: 1
-            relationship:
-              type: string
-            aliases:
-              type: array
-              items:
-                type: string
-              default: []
-          required: [name]
-          additionalProperties: false
-        body:
-          type: string
-      required: [frontmatter, body]
-      additionalProperties: false
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: better-auth.session_token
