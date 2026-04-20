@@ -59,14 +59,9 @@ mcp.all('/', async (c) => {
   const server = createMcpServer(deps)
   await server.connect(transport)
 
-  try {
-    return transport.handleRequest(c.req.raw, {
-      authInfo: { token: '', clientId: userId, scopes: [] },
-    })
-  } finally {
-    await transport.close()
-    await server.close()
-  }
+  return transport.handleRequest(c.req.raw, {
+    authInfo: { token: '', clientId: userId, scopes: [] },
+  })
 })
 
 export { mcp }
