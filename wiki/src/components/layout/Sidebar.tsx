@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import { T } from "@/lib/typography";
+import { useWikis } from "@/hooks/useWikis";
 
 const ACTIVE_COLOR = "#000000";
 const ACTIVE_WEIGHT = 700;
@@ -59,89 +60,33 @@ const navigationData: SidebarSectionData = {
 
 const entriesData: SidebarSectionData = {
   title: "Entries",
-  items: [
-    {
-      label: "Morning thought — Apr 18",
-      arrow: "none",
-      href: "/wiki/entries/entry01SAMPLE",
-    },
-  ],
+  items: [],
   emptyText: "no entries added",
 };
 
-const contentsData: SidebarSectionData = {
-  title: "Wiki Types",
-  items: [
-    {
-      label: "Log",
-      arrow: "right",
-      children: [
-        { label: "Morning journal — Apr 16", href: "/wiki/example/morning-journal" },
-      ],
-    },
-    {
-      label: "Research",
-      arrow: "right",
-      children: [
-        { label: "Spatial memory in corvids", href: "/wiki/example/spatial-memory-corvids" },
-      ],
-    },
-    {
-      label: "Belief",
-      arrow: "right",
-      children: [
-        { label: "Craft compounds over time", href: "/wiki/example/craft-compounds" },
-      ],
-    },
-    {
-      label: "Decision",
-      arrow: "down",
-      children: [{ label: "The Berlin years", href: "/wiki/article" }],
-    },
-    {
-      label: "Objective",
-      arrow: "right",
-      children: [
-        { label: "Ship the atlas by Q3", href: "/wiki/example/ship-the-atlas" },
-      ],
-    },
-    {
-      label: "Project",
-      arrow: "right",
-      children: [
-        { label: "Robin personal wiki", href: "/wiki/example/robin-personal-wiki" },
-      ],
-    },
-    {
-      label: "Principles",
-      arrow: "right",
-      children: [
-        { label: "Measure twice, cut once", href: "/wiki/example/measure-twice" },
-      ],
-    },
-    {
-      label: "Skill",
-      arrow: "right",
-      children: [
-        { label: "Type design fundamentals", href: "/wiki/example/type-design-fundamentals" },
-      ],
-    },
-    {
-      label: "Agent",
-      arrow: "right",
-      children: [
-        { label: "Research assistant", href: "/wiki/example/research-assistant" },
-      ],
-    },
-    {
-      label: "Voice",
-      arrow: "right",
-      children: [
-        { label: "Quiet morning tone", href: "/wiki/example/quiet-morning-tone" },
-      ],
-    },
-  ],
-};
+function useContentsData(): SidebarSectionData {
+  const { data } = useWikis();
+  const items = useMemo<NavItem[]>(() => {
+    const threads = data?.threads;
+    if (!threads || threads.length === 0) return [];
+
+    const grouped = new Map<string, { label: string; href: string }[]>();
+    for (const t of threads) {
+      const type = t.type.charAt(0).toUpperCase() + t.type.slice(1);
+      if (!grouped.has(type)) grouped.set(type, []);
+      grouped.get(type)!.push({ label: t.name, href: `/wiki/${t.id}` });
+    }
+
+    return Array.from(grouped.entries()).map(([type, children]) => ({
+      label: type,
+      arrow: "right" as ArrowState,
+      count: children.length,
+      children,
+    }));
+  }, [data]);
+
+  return { title: "Wiki Types", items };
+}
 
 const linkStyle: CSSProperties = {
   ...T.bodySmall,
@@ -496,6 +441,8 @@ function SidebarSection({
 }
 
 export default function Sidebar() {
+  const contentsData = useContentsData();
+
   return (
     <nav>
       <SidebarSection

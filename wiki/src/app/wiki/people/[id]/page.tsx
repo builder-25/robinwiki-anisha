@@ -1,22 +1,22 @@
 "use client";
 
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { UserRound, type LucideIcon } from "lucide-react";
 import { type CSSProperties } from "react";
 import { FONT, T } from "@/lib/typography";
 import {
-  WikiDesktopH4Lorem,
   WikiEntityArticle,
   WikiSectionH2,
-  WikiLink,
 } from "@/components/wiki/WikiEntityArticle";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
+import { usePerson } from "@/hooks/usePerson";
 
-const PEOPLE_FRAGMENTS: { id: string; title: string }[] = [
-  { id: "fragment01SAMPLE", title: "Andrew Tate Biography | The Real World Portal" },
-  { id: "fragment01SAMPLE", title: "Andrew Tate Biography | The Real World Portal" },
-  { id: "fragment01SAMPLE", title: "Andrew Tate Biography | The Real World Portal" },
-  { id: "fragment01SAMPLE", title: "Andrew Tate Biography | The Real World Portal" },
-];
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 function SettingsIcon() {
   return (
@@ -38,8 +38,10 @@ function SettingsIcon() {
 }
 
 function PeopleInfobox({
+  person,
   onSettingsClick,
 }: {
+  person: { relationship: string; updatedAt: string };
   onSettingsClick?: () => void;
 }) {
   const label: CSSProperties = {
@@ -92,29 +94,12 @@ function PeopleInfobox({
         <SettingsIcon />
       </button>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-        <p style={label}>Relationship</p>
-        <div style={body}>
-          <p style={{ margin: 0 }}>Audrey Geraldine Lorde</p>
-          <p style={{ margin: 0 }}>
-            February 18, 1934
-            <span
-              style={{
-                ...T.tiny,
-                fontSize: 8,
-                lineHeight: "10px",
-                color: "var(--wiki-article-link)",
-                verticalAlign: "super",
-              }}
-            >
-              [1]
-            </span>
-          </p>
-          <p style={{ margin: 0 }}>
-            <WikiLink>New York City</WikiLink>, U.S.
-          </p>
+      {person.relationship && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          <p style={label}>Relationship</p>
+          <p style={{ ...body, margin: 0 }}>{person.relationship}</p>
         </div>
-      </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
         <p style={label}>Last Updated</p>
@@ -126,36 +111,15 @@ function PeopleInfobox({
             whiteSpace: "nowrap",
           }}
         >
-          8 Apr 2026
+          {formatDate(person.updatedAt)}
         </p>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-        <p style={label}>Who They Are</p>
-        <div style={body}>
-          <p style={{ margin: 0 }}>Poetry</p>
-          <p style={{ margin: 0 }}>Nonfiction</p>
-        </div>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-        <p style={label}>How They Think</p>
-        <div style={{ ...body, fontStyle: "italic" }}>
-          <p style={{ margin: 0 }}>The First Cities</p>
-          <p style={{ margin: 0 }}>
-            <WikiLink>Zami: A New Spelling of My Name</WikiLink>
-          </p>
-          <p style={{ margin: 0 }}>
-            <WikiLink>The Cancer Journals</WikiLink>
-          </p>
-        </div>
       </div>
     </aside>
   );
 }
 
-function PeopleFragmentsSection() {
-  const count = PEOPLE_FRAGMENTS.length;
+function PeopleFragmentsSection({ backlinks }: { backlinks: Array<{ id: string; title: string }> }) {
+  const count = backlinks.length;
   const bodyStyle = {
     ...T.bodySmall,
     color: "var(--wiki-article-text)",
@@ -189,7 +153,7 @@ function PeopleFragmentsSection() {
             gap: 6,
           }}
         >
-          {PEOPLE_FRAGMENTS.map((frag, i) => (
+          {backlinks.map((frag, i) => (
             <li key={i}>
               <div
                 style={{
@@ -199,7 +163,7 @@ function PeopleFragmentsSection() {
                   gap: 12,
                 }}
               >
-                <a
+                <Link
                   href={`/wiki/fragments/${frag.id}`}
                   style={{
                     color: "var(--wiki-fragment-link)",
@@ -208,7 +172,7 @@ function PeopleFragmentsSection() {
                   }}
                 >
                   {frag.title}
-                </a>
+                </Link>
                 <Badge
                   variant="outline"
                   className="rounded-full"
@@ -231,77 +195,54 @@ function PeopleFragmentsSection() {
   );
 }
 
-/** People entity view: shares the common wiki shell + custom infobox/body */
 export default function WikiPeoplePage() {
+  const { id } = useParams<{ id: string }>();
+  const { data: person, isLoading, error } = usePerson(id);
+
   const bodyStyle = { ...T.bodySmall, color: "var(--wiki-article-text)" };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Spinner className="size-6" />
+      </div>
+    );
+  }
+
+  if (error || !person) {
+    return (
+      <div className="p-6">
+        <h1 style={T.h1}>Person not found</h1>
+        <p style={{ ...T.bodySmall, color: "var(--wiki-article-text)", marginTop: 8 }}>
+          This person could not be loaded. They may have been deleted or you may not have access.
+        </p>
+      </div>
+    );
+  }
+
+  const backlinks = person.backlinks ?? [];
+  const paragraphs = person.content ? person.content.split(/\n\n+/).filter(Boolean) : [];
 
   return (
     <WikiEntityArticle
       chipIcon={UserRound as LucideIcon}
       chipLabel="People"
-      title="Audre Lorde"
+      title={person.name}
       infobox={{ kind: "simple", typeLabel: "People", showSettings: true }}
       renderCustomInfobox={({ onSettingsClick }) => (
-        <PeopleInfobox onSettingsClick={onSettingsClick} />
+        <PeopleInfobox person={person} onSettingsClick={onSettingsClick} />
       )}
-      showDefaultBottomSections={false}
-      customBottomSections={<PeopleFragmentsSection />}
+      customBottomSections={<PeopleFragmentsSection backlinks={backlinks} />}
     >
-      <div style={bodyStyle}>
-        <p style={{ marginBottom: 0 }}>
-          Audre Lorde (
-          <WikiLink>/ˈɔːdri ˈlɔːrd/</WikiLink>; born Audrey Geraldine Lorde;
-          February 18, 1934 – November 17, 1992) was an American writer,{" "}
-          <WikiLink>feminist</WikiLink>, <WikiLink>womanist</WikiLink>,{" "}
-          <WikiLink>librarian</WikiLink>, and <WikiLink>civil rights</WikiLink>{" "}
-          activist. She was a self-described &ldquo;black, lesbian, mother,
-          warrior, poet,&rdquo; who &ldquo;dedicated both her life and her
-          creative talent to confronting and addressing injustices of{" "}
-          <WikiLink>racism</WikiLink>, <WikiLink>sexism</WikiLink>,{" "}
-          <WikiLink>classism</WikiLink>, and <WikiLink>homophobia</WikiLink>.
-          &rdquo;
-          <WikiLink>[1]</WikiLink>
-        </p>
-        <p style={{ marginBottom: 0 }}>
-          As a poet, she is best known for technical mastery and emotional
-          expression, as well as her poems that express anger and outrage at
-          civil and social injustices she observed throughout her life. As a{" "}
-          <WikiLink>spoken word</WikiLink> artist, her delivery has been called
-          powerful, melodic, and intense by the Poetry Foundation.
-          <WikiLink>[1]</WikiLink> Her poems and prose largely deal with issues
-          related to civil rights, feminism, lesbianism, illness and disability,
-          and the exploration of black female identity.
-          <WikiLink>[2][1][3]</WikiLink>
-        </p>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <WikiSectionH2 title="Who They Are" />
+      {paragraphs.length > 0 && (
         <div style={bodyStyle}>
-          <p style={{ margin: 0 }}>
-            Lorde was born in New York City to Caribbean immigrants. Her father,
-            Frederick Byron Lorde, (known as Byron) hailed from Barbados and her
-            mother, Linda Gertrude Belmar Lorde, was Grenadian and had been born
-            in the island of <WikiLink>Carriacou</WikiLink>. Lorde&apos;s mother
-            was of mixed ancestry but could &ldquo;<WikiLink>pass</WikiLink>
-            &rdquo; for &lsquo;<WikiLink>Spanish</WikiLink>&rsquo;,
-            <WikiLink>[4]</WikiLink> which was a source of pride for her family.
-            Lorde&apos;s father was darker than the Belmar family liked, and
-            they only allowed the couple to marry because of Byron Lorde&apos;s
-            charm, ambition, and persistence.
-            <WikiLink>[5]</WikiLink> The family settled in{" "}
-            <WikiLink>Harlem</WikiLink>. <WikiLink>Nearsighted</WikiLink> to the
-            point of <WikiLink>being legally</WikiLink> blind and the youngest of
-            three daughters (her two older sisters were named Phyllis and
-            Helen), Lorde grew up hearing her mother&apos;s stories about the{" "}
-            <WikiLink>West Indies</WikiLink>. At the age of four, she learned to
-            talk while she learned to read, and her mother taught her to write
-            at around the same time. She wrote her first poem when she was in
-            eighth grade.
-          </p>
+          {paragraphs.map((p, i) => (
+            <p key={i} style={{ marginBottom: 0, whiteSpace: "pre-wrap" }}>
+              {p}
+            </p>
+          ))}
         </div>
-        <WikiDesktopH4Lorem paragraphs={2} />
-      </div>
+      )}
     </WikiEntityArticle>
   );
 }

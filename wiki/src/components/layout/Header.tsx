@@ -4,6 +4,7 @@ import { useState } from "react";
 import { T } from "@/lib/typography";
 import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { useSession } from "@/hooks/useSession";
 
 import AddWikiModal from "@/components/layout/AddWikiModal";
 import WikiHeaderSearch from "@/components/layout/WikiHeaderSearch";
@@ -15,6 +16,7 @@ interface HeaderProps {
 export default function Header({ onMenuToggle }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [addWikiOpen, setAddWikiOpen] = useState(false);
+  const { session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const isWikiHome = pathname === "/wiki";
@@ -118,7 +120,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
               whiteSpace: "nowrap",
             }}
           >
-            antellopia
+            {session?.user?.name ?? session?.user?.email ?? ""}
           </span>
           </div>
 

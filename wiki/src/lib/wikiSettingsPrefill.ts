@@ -12,7 +12,7 @@ export type WikiSettingsPrefill = {
 };
 
 /** Plain text aligned with WikiIntroLead copy (mock article body). */
-export const WIKI_INTRO_LEAD_PLAINTEXT =
+const WIKI_INTRO_LEAD_PLAINTEXT =
   "Audre Lorde (/ˈɔːdri ˈlɔːrd/; born Audrey Geraldine Lorde; February 18, 1934 – November 17, 1992) was an American writer, feminist, womanist, librarian, and civil rights activist. She was a self-described";
 
 /**
@@ -35,7 +35,7 @@ const CHIP_LABEL_TO_WIKI_TYPE: Record<string, string> = {
   Person: "people",
 };
 
-export function wikiTypeSelectValueForChip(chipLabel: string): string {
+function wikiTypeSelectValueForChip(chipLabel: string): string {
   return CHIP_LABEL_TO_WIKI_TYPE[chipLabel.trim()] ?? "";
 }
 
