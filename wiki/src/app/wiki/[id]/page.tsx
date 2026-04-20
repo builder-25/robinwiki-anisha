@@ -1,12 +1,123 @@
-'use client'
-import { useParams } from 'next/navigation'
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { T } from "@/lib/typography";
+import { Spinner } from "@/components/ui/spinner";
+import { useWiki } from "@/hooks/useWiki";
+import {
+  WikiEntityArticle,
+  WikiSectionH2,
+} from "@/components/wiki/WikiEntityArticle";
+import { getWikiTypeIcon } from "@/components/wiki/WikiTypeBadge";
+
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export default function WikiDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  const { id } = useParams<{ id: string }>();
+  const { data: wiki, isLoading, error } = useWiki(id);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Spinner className="size-6" />
+      </div>
+    );
+  }
+
+  if (error || !wiki) {
+    return (
+      <div className="p-6">
+        <h1 style={T.h1}>Wiki not found</h1>
+        <p style={{ ...T.bodySmall, color: "var(--wiki-article-text)", marginTop: 8 }}>
+          This wiki could not be loaded. It may have been deleted or you may not have access.
+        </p>
+      </div>
+    );
+  }
+
+  const typeLabel = capitalize(wiki.type);
+  const bodyStyle = { ...T.bodySmall, color: "var(--wiki-article-text)" };
+
   return (
-    <div className="p-6">
-      <h1>Wiki: {id}</h1>
-      <p className="text-muted-foreground">Content will load from API when hooks are wired.</p>
-    </div>
-  )
+    <WikiEntityArticle
+      chipIcon={getWikiTypeIcon(typeLabel)}
+      chipLabel={typeLabel}
+      title={wiki.name}
+      infobox={{ kind: "simple", typeLabel, showSettings: true }}
+      wikiId={wiki.id}
+    >
+      {wiki.wikiContent && (
+        <div style={bodyStyle}>
+          <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{wiki.wikiContent}</p>
+        </div>
+      )}
+
+      {wiki.fragments && wiki.fragments.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <WikiSectionH2 title="Member Fragments" count={wiki.fragments.length} />
+          <ul
+            style={{
+              ...bodyStyle,
+              listStyle: "decimal",
+              paddingLeft: 20,
+              margin: "12px 0 0 0",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            {wiki.fragments.map((frag) => (
+              <li key={frag.id}>
+                <Link
+                  href={`/wiki/fragments/${frag.id}`}
+                  style={{
+                    color: "var(--wiki-fragment-link)",
+                    textDecoration: "underline",
+                    textDecorationSkipInk: "none",
+                  }}
+                >
+                  {frag.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {wiki.people && wiki.people.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <WikiSectionH2 title="Mentioned People" count={wiki.people.length} />
+          <ul
+            style={{
+              ...bodyStyle,
+              listStyle: "disc",
+              paddingLeft: 20,
+              margin: "12px 0 0 0",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            {wiki.people.map((person) => (
+              <li key={person.id}>
+                <Link
+                  href={`/wiki/people/${person.id}`}
+                  style={{
+                    color: "var(--wiki-fragment-link)",
+                    textDecoration: "underline",
+                    textDecorationSkipInk: "none",
+                  }}
+                >
+                  {person.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </WikiEntityArticle>
+  );
 }

@@ -3,15 +3,20 @@
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import { AuthGuard } from "@/components/AuthGuard";
 
 export default function WikiLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(min-width: 1024px)").matches;
+  });
 
   return (
+    <AuthGuard>
     <div
       className="wiki-shell relative"
       data-sidebar={sidebarOpen ? "open" : "closed"}
@@ -71,5 +76,6 @@ export default function WikiLayout({
       {/* Main content */}
       <main className="wiki-main">{children}</main>
     </div>
+    </AuthGuard>
   );
 }

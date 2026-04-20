@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { T } from "@/lib/typography";
 import { usePathname, useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 
 import AddWikiModal from "@/components/layout/AddWikiModal";
 import WikiHeaderSearch from "@/components/layout/WikiHeaderSearch";
@@ -217,8 +218,10 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                 Settings
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   setDropdownOpen(false);
+                  await authClient.signOut();
+                  router.push("/login");
                 }}
                 className="flex w-full cursor-pointer items-center"
                 style={{

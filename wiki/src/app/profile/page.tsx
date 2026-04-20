@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/hooks/useSession";
+import { AuthGuard } from "@/components/AuthGuard";
 import { useProfile } from "@/hooks/useProfile";
 import { useStats } from "@/hooks/useStats";
 import { authClient } from "@/lib/auth-client";
@@ -69,7 +70,7 @@ export default function ProfilePage() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
   const username = session?.user?.name ?? session?.user?.email ?? "";
-  const canDelete = deleteConfirm === username;
+  const canDelete = username.length > 0 && deleteConfirm === username;
 
   const endpointUrl = profileQuery.data?.mcpEndpointUrl ?? "";
 
@@ -100,6 +101,7 @@ export default function ProfilePage() {
   }
 
   return (
+    <AuthGuard>
     <div className="min-h-screen overflow-y-auto bg-background text-foreground">
       <div className="mx-auto max-w-[780px] px-10 pt-12 pb-20">
         {/* Back navigation */}
@@ -447,6 +449,7 @@ export default function ProfilePage() {
         </section>
       </div>
     </div>
+    </AuthGuard>
   );
 }
 
