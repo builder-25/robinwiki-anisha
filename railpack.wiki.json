@@ -4,6 +4,7 @@
   "packages": { "node": "20" },
   "steps": {
     "install": {
+      "inputs": [{ "include": ["."] }],
       "commands": [
         "corepack enable",
         "corepack prepare pnpm@10.15.1 --activate",
@@ -11,6 +12,7 @@
       ]
     },
     "build": {
+      "inputs": [{ "step": "install" }, { "include": ["."] }],
       "secrets": ["NEXT_PUBLIC_ROBIN_API"],
       "commands": ["pnpm --filter @robin/wiki... build"]
     }
