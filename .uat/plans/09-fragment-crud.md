@@ -14,6 +14,9 @@ DB_URL="${DATABASE_URL:-postgresql://postgres@127.0.0.1:5432/robinwiki}"
 COOKIE_JAR=$(mktemp /tmp/uat-cookies-XXXXXX.txt)
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
+RUN_SUFFIX="${UAT_RUN_ID:-$$}"
+FRAG_CONTENT="Unique content for dedup test [$RUN_SUFFIX]"
+
 PASS=0; FAIL=0
 pass() { PASS=$((PASS+1)); echo "  ✓ $1"; }
 fail() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
@@ -40,7 +43,7 @@ ENTRY_ID=$(echo "$ENTRY" | jq -r '.id // .lookupKey // ""')
 CREATE=$(curl -s -w "\n%{http_code}" -X POST -b "$COOKIE_JAR" \
   -H "Content-Type: application/json" \
   -H "Origin: http://localhost:3000" \
-  -d "{\"title\":\"UAT Test Fragment\",\"content\":\"Unique content for dedup test\",\"entryId\":\"$ENTRY_ID\",\"tags\":[\"uat\",\"test\"]}" \
+  -d "{\"title\":\"UAT Test Fragment\",\"content\":\"$FRAG_CONTENT\",\"entryId\":\"$ENTRY_ID\",\"tags\":[\"uat\",\"test\"]}" \
   "$SERVER_URL/fragments")
 CREATE_HTTP=$(echo "$CREATE" | tail -1)
 CREATE_BODY=$(echo "$CREATE" | sed '$d')
@@ -81,12 +84,11 @@ UPDATED_TITLE=$(curl -s -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" \
   "$SERVER_URL/fragments/$FRAG_ID" | jq -r '.title')
 [ "$UPDATED_TITLE" = "UAT Fragment Updated" ] && pass "title updated" || fail "title: $UPDATED_TITLE"
 
-# 5. Dedup — re-POST same content
-ORIGINAL_CONTENT=$(jq -r '.content' /tmp/uat-frag-detail.json 2>/dev/null)
+# 5. Dedup — re-POST same original content (before any updates)
 DEDUP=$(curl -s -w "\n%{http_code}" -X POST -b "$COOKIE_JAR" \
   -H "Content-Type: application/json" \
   -H "Origin: http://localhost:3000" \
-  -d "{\"title\":\"Duplicate\",\"content\":\"$ORIGINAL_CONTENT\",\"entryId\":\"$ENTRY_ID\"}" \
+  -d "{\"title\":\"Duplicate\",\"content\":\"$FRAG_CONTENT\",\"entryId\":\"$ENTRY_ID\"}" \
   "$SERVER_URL/fragments")
 DEDUP_HTTP=$(echo "$DEDUP" | tail -1)
 [ "$DEDUP_HTTP" = "200" ] && pass "dedup returns 200 (not 201)" || fail "dedup returned $DEDUP_HTTP (expected 200)"
