@@ -2,16 +2,18 @@ import { Hono } from 'hono'
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { zValidator } from '@hono/zod-validator'
 import { generateSlug, makeLookupKey } from '@robin/shared'
-import { NoOpenRouterKeyError } from '@robin/agent'
+import { NoOpenRouterKeyError, embedText } from '@robin/agent'
 import { sessionMiddleware } from '../middleware/session.js'
 import { db } from '../db/client.js'
 import { wikis, edges, wikiTypes, fragments, people, auditLog, edits, groupWikis } from '../db/schema.js'
 import { resolveWikiSlug } from '../db/slug.js'
 import { inferWikiType } from '../mcp/wiki-type-inference.js'
+import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
 import { logger } from '../lib/logger.js'
 import { validationHook } from '../lib/validation.js'
 import { nanoid24 } from '../lib/id.js'
 import { regenerateWiki } from '../lib/regen.js'
+import { producer } from '../queue/producer.js'
 import {
   threadResponseSchema,
   threadListResponseSchema,
@@ -133,6 +135,69 @@ wikisRouter.post('/', zValidator('json', createThreadBodySchema, validationHook)
     summary: `Wiki created: ${body.name.trim()}`,
     detail: { wikiKey: lookupKey, type: wikiType, slug: finalSlug },
   })
+
+  // Quick-classify unfiled fragments by embedding similarity (mechanism 2)
+  try {
+    const orConfig = await loadOpenRouterConfig()
+    const textToEmbed = `${body.name.trim()} ${body.prompt ?? ''}`.trim()
+    const wikiVec = await embedText(textToEmbed, {
+      apiKey: orConfig.apiKey,
+      model: orConfig.models.embedding,
+    })
+
+    if (wikiVec) {
+      const candidates = await db
+        .select({
+          lookupKey: fragments.lookupKey,
+          distance: sql<number>`${fragments.embedding} <=> ${JSON.stringify(wikiVec)}::vector`,
+        })
+        .from(fragments)
+        .where(
+          and(
+            isNull(fragments.deletedAt),
+            sql`${fragments.embedding} IS NOT NULL`,
+            sql`${fragments.lookupKey} NOT IN (
+              SELECT src_id FROM edges
+              WHERE edge_type = 'FRAGMENT_IN_WIKI' AND deleted_at IS NULL
+            )`
+          )
+        )
+        .orderBy(sql`${fragments.embedding} <=> ${JSON.stringify(wikiVec)}::vector`)
+        .limit(20)
+
+      const matched = candidates.filter((c) => 1 - c.distance > 0.6)
+
+      for (const frag of matched) {
+        await db
+          .insert(edges)
+          .values({
+            id: crypto.randomUUID(),
+            srcType: 'fragment',
+            srcId: frag.lookupKey,
+            dstType: 'wiki',
+            dstId: lookupKey,
+            edgeType: 'FRAGMENT_IN_WIKI',
+            attrs: { score: 1 - frag.distance },
+          })
+          .onConflictDoNothing()
+      }
+
+      if (matched.length > 0) {
+        await producer.enqueueRegen({
+          type: 'regen',
+          jobId: crypto.randomUUID(),
+          objectKey: lookupKey,
+          objectType: 'wiki',
+          triggeredBy: 'manual',
+          enqueuedAt: new Date().toISOString(),
+        })
+      }
+
+      log.info({ wikiKey: lookupKey, linked: matched.length }, 'quick-classified fragments on wiki create')
+    }
+  } catch (err) {
+    log.warn({ wikiKey: lookupKey, err }, 'quick-classify on wiki create failed — wiki created without fragment linking')
+  }
 
   return c.json(threadResponseSchema.parse(prepareThread(created)), 201)
 })
