@@ -70,7 +70,14 @@ export async function wikiClassify(
   })
 
   return {
-    data: { wikiEdges },
+    data: {
+      wikiEdges,
+      rawAssignments: result.assignments.map((a) => ({
+        wikiKey: a.wikiKey,
+        confidence: a.confidence,
+        reasoning: a.reasoning,
+      })),
+    },
     durationMs: performance.now() - start,
   }
 }

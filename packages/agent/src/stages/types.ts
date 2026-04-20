@@ -79,6 +79,7 @@ export interface WikiClassifyDeps {
 
 export interface WikiClassifyResult {
   wikiEdges: Array<{ wikiKey: string; score: number }>
+  rawAssignments?: Array<{ wikiKey: string; confidence: number; reasoning: string }>
 }
 
 export interface FragRelateDeps {
