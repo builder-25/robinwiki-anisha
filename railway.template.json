@@ -1,7 +1,7 @@
 {
   "$schema": "https://railway.com/schema/template.json",
   "name": "Robin",
-  "description": "AI-powered second brain. Captures thoughts through conversation and structures them into a searchable, git-backed knowledge base.",
+  "description": "AI-powered second brain. Captures thoughts through conversation and structures them into a searchable knowledge base stored in Postgres.",
   "tags": ["ai", "knowledge-base", "productivity", "nextjs", "hono"],
   "readme": "Provisions Postgres, Redis, the Robin core API, and the Robin wiki frontend. After first deploy, run `CREATE EXTENSION IF NOT EXISTS vector;` on Postgres and fill `SERVER_PUBLIC_URL` / `WIKI_ORIGIN` with the generated Railway domains. See DEPLOY.md for full instructions.",
   "services": [

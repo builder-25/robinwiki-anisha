@@ -3,7 +3,7 @@
 
 **Robin**
 
-Robin is an AI-powered second brain that captures thoughts through conversation and structures them into a searchable knowledge base. Users interact with AI (via MCP or web UI), and Robin runs in the background to automatically extract atomic ideas (fragments), classify them into topic clusters (threads), and store everything in personal git-backed markdown repositories.
+Robin is an AI-powered second brain that captures thoughts through conversation and structures them into a searchable knowledge base. Users interact with AI (via MCP or web UI), and Robin runs in the background to automatically extract atomic ideas (fragments), classify them into topic clusters (threads), and store everything in a Postgres knowledge base. Every fragment, entry, and wiki is a text row in the database — there is no git-backed markdown store and no filesystem repo.
 
 The server app is the sole application, owning all intelligence, auth, API, MCP, and AI pipeline responsibilities.
 
