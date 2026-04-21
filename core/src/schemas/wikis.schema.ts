@@ -1,9 +1,5 @@
 import { z } from 'zod'
-import {
-  wikiInfoboxSchema,
-  wikiRefsMapSchema,
-  wikiSectionSchema,
-} from '@robin/shared/schemas/sidecar'
+import { wikiRefsMapSchema, wikiInfoboxSchema, wikiSectionSchema } from '@robin/shared/schemas/sidecar'
 import { lookupKeySchema, objectStateSchema, queuedResponseSchema } from './base.schema.js'
 
 // ── Progress schemas ───────────────────────────────────────────────────────
