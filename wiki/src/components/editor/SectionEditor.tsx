@@ -48,17 +48,24 @@ export default function SectionEditor({
   isSaving = false,
   error = null,
 }: SectionEditorProps) {
+  // Reset the draft whenever the dialog opens or the target section
+  // changes. Uses the React docs "storing previous prop in state"
+  // pattern (https://react.dev/reference/react/useState#storing-information-from-previous-renders)
+  // so we avoid the cascading-render hit that an effect + setState
+  // would cause. `openKey` is null when the dialog is closed and equal
+  // to the current `initialBody` when it's open; when the key changes,
+  // the draft resets synchronously during render.
+  const openKey = open ? initialBody : null;
+  const [prevOpenKey, setPrevOpenKey] = useState<string | null>(openKey);
   const [draft, setDraft] = useState(initialBody);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Reset the draft every time the dialog re-opens or the target
-  // section changes. Without this, clicking [edit] on a different
-  // heading while an old dialog instance lingers shows stale content.
-  useEffect(() => {
-    if (open) {
-      setDraft(initialBody);
+  if (openKey !== prevOpenKey) {
+    setPrevOpenKey(openKey);
+    if (openKey !== null) {
+      setDraft(openKey);
     }
-  }, [open, initialBody]);
+  }
 
   // Focus the textarea on open so the user can start typing immediately.
   useEffect(() => {
