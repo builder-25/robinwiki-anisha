@@ -165,7 +165,11 @@ export default function WikiDetailPage() {
       }
     >
       {wiki.wikiContent && (
-        <MarkdownContent content={wiki.wikiContent} style={bodyStyle} />
+        wiki.wikiContent.trim().startsWith('<') ? (
+          <div className="wiki-richtext-rendered" style={bodyStyle} dangerouslySetInnerHTML={{ __html: wiki.wikiContent }} />
+        ) : (
+          <MarkdownContent content={wiki.wikiContent} style={bodyStyle} />
+        )
       )}
 
       {wiki.fragments && wiki.fragments.length > 0 && (
