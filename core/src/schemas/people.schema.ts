@@ -1,9 +1,4 @@
 import { z } from 'zod'
-import {
-  wikiRefsMapSchema,
-  wikiInfoboxSchema,
-  wikiSectionSchema,
-} from '@robin/shared/schemas/sidecar'
 import { lookupKeySchema, objectStateSchema, paginationQuerySchema, queuedResponseSchema } from './base.schema.js'
 
 // ── Response schemas ────────────────────────────────────────────────────────
@@ -41,11 +36,6 @@ export const personDetailResponseSchema = personResponseSchema.extend({
     })
   ),
   wikis: z.array(personWikiSchema).default([]),
-  // ── Sidecar (m-wiki-sidecar) ──
-  // Person infobox is server-derived (relationship, aliases, mention stats).
-  refs: wikiRefsMapSchema.default({}),
-  infobox: wikiInfoboxSchema.nullable().default(null),
-  sections: z.array(wikiSectionSchema).default([]),
 })
 
 export const personWithBacklinksResponseSchema = personResponseSchema.extend({
