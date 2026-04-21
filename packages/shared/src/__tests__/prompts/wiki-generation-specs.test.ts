@@ -62,6 +62,44 @@ describe('wiki-types specs', () => {
         expect(result.meta.temperature).toBeGreaterThan(0)
         expect(result.meta.outputSchema).toBeDefined()
       })
+
+      it('output schema parses { markdown, infobox, citations } — full payload', () => {
+        const result = loadWikiGenerationSpec(type, wikiFixtures)
+        const schema = result.meta.outputSchema
+        const parsed = schema.parse({
+          markdown: '# Sample',
+          infobox: {
+            rows: [
+              { label: 'Status', value: 'active', valueKind: 'status' },
+            ],
+          },
+          citations: [
+            { sectionAnchor: 'overview', fragmentIds: ['frag-abc'] },
+          ],
+        })
+        expect(parsed).toMatchObject({
+          markdown: '# Sample',
+          citations: [{ sectionAnchor: 'overview', fragmentIds: ['frag-abc'] }],
+        })
+      })
+
+      it('output schema parses a minimal { markdown } payload (infobox/citations default)', () => {
+        const result = loadWikiGenerationSpec(type, wikiFixtures)
+        const schema = result.meta.outputSchema
+        const parsed = schema.parse({ markdown: '# Sample only' })
+        expect(parsed).toMatchObject({
+          markdown: '# Sample only',
+          infobox: null,
+          citations: [],
+        })
+      })
+
+      it('rendered template contains [LINKING SYNTAX] and [INFOBOX] headers', () => {
+        const result = loadWikiGenerationSpec(type, wikiFixtures)
+        expect(result.user).toContain('[LINKING SYNTAX — USE EXACTLY]')
+        expect(result.user).toContain('[INFOBOX]')
+        expect(result.user).toContain('[CITATIONS — PER SECTION, STRUCTURED FIELD]')
+      })
     })
   }
 })
