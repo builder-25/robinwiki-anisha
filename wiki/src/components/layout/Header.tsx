@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { T } from "@/lib/typography";
 import { usePathname, useRouter } from "next/navigation";
+import { useSession } from "@/hooks/useSession";
+import { useLogout } from "@/hooks/useLogout";
 
 import AddWikiModal from "@/components/layout/AddWikiModal";
 import WikiHeaderSearch from "@/components/layout/WikiHeaderSearch";
@@ -14,8 +16,10 @@ interface HeaderProps {
 export default function Header({ onMenuToggle }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [addWikiOpen, setAddWikiOpen] = useState(false);
+  const { session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  const logout = useLogout();
   const isWikiHome = pathname === "/wiki";
 
   const addWikiFg = "var(--wiki-link)";
@@ -117,7 +121,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
               whiteSpace: "nowrap",
             }}
           >
-            antellopia
+            {session?.user?.name ?? session?.user?.email ?? ""}
           </span>
           </div>
 
@@ -217,8 +221,9 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                 Settings
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   setDropdownOpen(false);
+                  await logout();
                 }}
                 className="flex w-full cursor-pointer items-center"
                 style={{

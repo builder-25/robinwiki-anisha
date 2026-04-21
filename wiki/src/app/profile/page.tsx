@@ -35,9 +35,13 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/hooks/useSession";
+import { AuthGuard } from "@/components/AuthGuard";
 import { useProfile } from "@/hooks/useProfile";
 import { useStats } from "@/hooks/useStats";
-import { authClient } from "@/lib/auth-client";
+import { useWikis } from "@/hooks/useWikis";
+import { useRegenerateWiki } from "@/hooks/useRegenerateWiki";
+import { useLogout } from "@/hooks/useLogout";
+import { exportUserData, getUserKeypair } from "@/lib/api";
 
 function SectionLabel({
   children,
@@ -64,12 +68,16 @@ export default function ProfilePage() {
   const profileQuery = useProfile();
   const statsQuery = useStats();
   const modelPrefs = useModelPreferences();
+  const wikisQuery = useWikis();
+  const regenerateWiki = useRegenerateWiki();
+  const logout = useLogout();
   const [copied, setCopied] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [regenStatus, setRegenStatus] = useState<"idle" | "running" | "done" | "error">("idle");
 
   const username = session?.user?.name ?? session?.user?.email ?? "";
-  const canDelete = deleteConfirm === username;
+  const canDelete = username.length > 0 && deleteConfirm === username;
 
   const endpointUrl = profileQuery.data?.mcpEndpointUrl ?? "";
 
@@ -79,14 +87,51 @@ export default function ProfilePage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSignOut = async () => {
-    await authClient.signOut();
-    router.push("/");
+  const triggerJsonDownload = (data: unknown, filename: string) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportData = async () => {
+    try {
+      const { data } = await exportUserData({ credentials: "include" });
+      if (data) triggerJsonDownload(data, "robin-export.json");
+    } catch {
+      // silently fail — user sees no download
+    }
+  };
+
+  const handleExportKeypair = async () => {
+    try {
+      const { data } = await getUserKeypair({ credentials: "include" });
+      if (data) triggerJsonDownload(data, "robin-keypair.json");
+    } catch {
+      // silently fail — user sees no download
+    }
+  };
+
+  const handleRegenerate = async () => {
+    const wikis = wikisQuery.data?.wikis;
+    if (!wikis?.length) return;
+    setRegenStatus("running");
+    try {
+      await Promise.all(wikis.map((w) => regenerateWiki.mutateAsync(w.id)));
+      setRegenStatus("done");
+      setTimeout(() => setRegenStatus("idle"), 3000);
+    } catch {
+      setRegenStatus("error");
+      setTimeout(() => setRegenStatus("idle"), 3000);
+    }
   };
 
   const stats = [
-    { count: 0, label: "Fragments" },
-    { count: 0, label: "Unattached Fragments" },
+    { count: statsQuery.data?.totalNotes ?? 0, label: "Fragments" },
+    { count: statsQuery.data?.unthreadedCount ?? 0, label: "Unattached Fragments" },
     { count: statsQuery.data?.totalThreads ?? 0, label: "Wikis" },
     { count: statsQuery.data?.peopleCount ?? 0, label: "People" },
   ];
@@ -100,6 +145,7 @@ export default function ProfilePage() {
   }
 
   return (
+    <AuthGuard>
     <div className="min-h-screen overflow-y-auto bg-background text-foreground">
       <div className="mx-auto max-w-[780px] px-10 pt-12 pb-20">
         {/* Back navigation */}
@@ -107,7 +153,7 @@ export default function ProfilePage() {
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => router.back()}
+          onClick={() => router.push("/wiki")}
           className="mb-6 -ml-2 h-auto gap-1.5 px-2 text-muted-foreground"
         >
           <ArrowLeft className="size-4" strokeWidth={1.5} />
@@ -318,10 +364,25 @@ export default function ProfilePage() {
                 </button>
               </div>
 
-              <Button type="button" variant="outline" size="sm" className="gap-1.5">
-                <RefreshCw className="size-3.5" strokeWidth={1.5} />
-                Re-profile
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={regenStatus === "running" || !wikisQuery.data?.wikis?.length}
+                  onClick={handleRegenerate}
+                >
+                  <RefreshCw className={cn("size-3.5", regenStatus === "running" && "animate-spin")} strokeWidth={1.5} />
+                  {regenStatus === "running" ? "Regenerating..." : "Re-profile"}
+                </Button>
+                {regenStatus === "done" && (
+                  <span className="text-xs text-emerald-600">All wikis regenerated</span>
+                )}
+                {regenStatus === "error" && (
+                  <span className="text-xs text-destructive">Regeneration failed</span>
+                )}
+              </div>
             </CardContent>
           </Card>
         </section>
@@ -335,13 +396,13 @@ export default function ProfilePage() {
                 title="Export all data"
                 description="Download all wikis and people as JSON"
                 icon={<Download className="size-4" strokeWidth={1.5} />}
-                onClick={() => {}}
+                onClick={handleExportData}
               />
               <ActionRow
                 title="Export keypair"
                 description="Download your Ed25519 public and private key as JSON"
                 icon={<KeyRound className="size-4" strokeWidth={1.5} />}
-                onClick={() => {}}
+                onClick={handleExportKeypair}
               />
             </CardContent>
           </Card>
@@ -356,7 +417,7 @@ export default function ProfilePage() {
                 title="Log out"
                 description="Sign out of your account on this device"
                 icon={<LogOut className="size-4" strokeWidth={1.5} />}
-                onClick={handleSignOut}
+                onClick={logout}
               />
             </CardContent>
           </Card>
@@ -447,6 +508,7 @@ export default function ProfilePage() {
         </section>
       </div>
     </div>
+    </AuthGuard>
   );
 }
 

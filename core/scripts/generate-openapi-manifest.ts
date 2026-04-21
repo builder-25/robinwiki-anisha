@@ -62,12 +62,6 @@ import {
   personListResponseSchema,
   updatePersonBodySchema,
   personListQuerySchema,
-  // vaults
-  createVaultBodySchema,
-  updateVaultBodySchema,
-  updateVaultProfileBodySchema,
-  vaultResponseSchema,
-  vaultListResponseSchema,
   // search
   searchQuerySchema,
   searchResponseSchema,
@@ -85,16 +79,9 @@ import {
   // content
   contentRawResponseSchema,
   contentStructuredResponseSchema,
-  fragmentWriteSchema,
-  entryWriteSchema,
-  wikiWriteSchema,
-  personWriteSchema,
   // admin
   retryStuckDryRunResponseSchema,
   retryStuckResponseSchema,
-  // internal
-  syncNotifyPayloadSchema,
-  syncAcceptedResponseSchema,
   // audit
   auditLogResponseSchema,
   auditLogQuerySchema,
@@ -151,12 +138,6 @@ const schemaRegistry: Record<string, ZodType> = {
   personListResponseSchema,
   updatePersonBodySchema,
   personListQuerySchema,
-  // vaults
-  createVaultBodySchema,
-  updateVaultBodySchema,
-  updateVaultProfileBodySchema,
-  vaultResponseSchema,
-  vaultListResponseSchema,
   // search
   searchQuerySchema,
   searchResponseSchema,
@@ -174,16 +155,9 @@ const schemaRegistry: Record<string, ZodType> = {
   // content
   contentRawResponseSchema,
   contentStructuredResponseSchema,
-  fragmentWriteSchema,
-  entryWriteSchema,
-  wikiWriteSchema,
-  personWriteSchema,
   // admin
   retryStuckDryRunResponseSchema,
   retryStuckResponseSchema,
-  // internal
-  syncNotifyPayloadSchema,
-  syncAcceptedResponseSchema,
   // audit
   auditLogResponseSchema,
   auditLogQuerySchema,
@@ -259,15 +233,6 @@ const routes: RouteSpec[] = [
   { method: 'POST', path: '/threads/{id}/regenerate', operationId: 'regenerateThread', summary: 'Trigger thread wiki regeneration', tags: ['Threads'], auth: 'session', request: { params: { id: 'lookupKey' } }, responses: { '202': { description: 'Job queued', schemaName: 'queuedResponseSchema' }, '404': { description: 'Not found', schemaName: 'errorResponseSchema' } } },
   { method: 'POST', path: '/threads/{targetId}/merge', operationId: 'mergeThreads', summary: 'Merge threads (not implemented)', tags: ['Threads'], auth: 'session', responses: { '501': { description: 'Not implemented', schemaName: 'errorResponseSchema' } } },
 
-  // ── Vaults ───────────────────────────────────────────────────────────────
-  { method: 'GET', path: '/vaults', operationId: 'listVaults', summary: 'List all vaults', tags: ['Vaults'], auth: 'session', responses: { '200': { description: 'List of vaults', schemaName: 'vaultListResponseSchema' } } },
-  { method: 'GET', path: '/vaults/{id}', operationId: 'getVault', summary: 'Get a vault by ID', tags: ['Vaults'], auth: 'session', request: { params: { id: 'string' } }, responses: { '200': { description: 'The vault', schemaName: 'vaultResponseSchema' }, '404': { description: 'Not found', schemaName: 'errorResponseSchema' } } },
-  { method: 'POST', path: '/vaults', operationId: 'createVault', summary: 'Create a new vault', tags: ['Vaults'], auth: 'session', request: { body: { schemaName: 'createVaultBodySchema' } }, responses: { '201': { description: 'Created vault', schemaName: 'vaultResponseSchema' }, '400': { description: 'Invalid input', schemaName: 'errorResponseSchema' } } },
-  { method: 'PUT', path: '/vaults/{id}', operationId: 'updateVault', summary: 'Update a vault', tags: ['Vaults'], auth: 'session', request: { params: { id: 'string' }, body: { schemaName: 'updateVaultBodySchema' } }, responses: { '200': { description: 'Updated vault', schemaName: 'vaultResponseSchema' }, '404': { description: 'Not found', schemaName: 'errorResponseSchema' } } },
-  { method: 'PUT', path: '/vaults/{id}/profile', operationId: 'updateVaultProfile', summary: "Update vault profile text", tags: ['Vaults'], auth: 'session', request: { params: { id: 'string' }, body: { schemaName: 'updateVaultProfileBodySchema' } }, responses: { '200': { description: 'Updated vault', schemaName: 'vaultResponseSchema' }, '404': { description: 'Not found', schemaName: 'errorResponseSchema' } } },
-  { method: 'GET', path: '/vaults/{vaultId}/threads', operationId: 'listVaultThreads', summary: 'List threads in a vault', tags: ['Vaults'], auth: 'session', request: { params: { vaultId: 'string' } }, responses: { '200': { description: 'List of threads', schemaName: 'threadListResponseSchema' } } },
-  { method: 'POST', path: '/vaults/{vaultId}/threads', operationId: 'createVaultThread', summary: 'Create a thread in a vault', tags: ['Vaults'], auth: 'session', request: { params: { vaultId: 'string' }, body: { schemaName: 'createThreadBodySchema' } }, responses: { '201': { description: 'Created thread', schemaName: 'threadResponseSchema' }, '400': { description: 'Invalid input', schemaName: 'errorResponseSchema' }, '404': { description: 'Vault not found', schemaName: 'errorResponseSchema' } } },
-
   // ── People ───────────────────────────────────────────────────────────────
   { method: 'GET', path: '/people', operationId: 'listPeople', summary: 'List all people with pagination', tags: ['People'], auth: 'session', request: { query: { schemaName: 'personListQuerySchema' } }, responses: { '200': { description: 'List of people', schemaName: 'personListResponseSchema' } } },
   { method: 'GET', path: '/people/{id}', operationId: 'getPerson', summary: 'Get a person by ID (includes content and backlinks)', tags: ['People'], auth: 'session', request: { params: { id: 'lookupKey' } }, responses: { '200': { description: 'Person with content and backlinks', schemaName: 'personDetailResponseSchema' }, '404': { description: 'Not found', schemaName: 'errorResponseSchema' } } },
@@ -300,9 +265,6 @@ const routes: RouteSpec[] = [
 
   // ── Admin ────────────────────────────────────────────────────────────────
   { method: 'POST', path: '/admin/retry-stuck', operationId: 'retryStuckFragments', summary: 'Re-enqueue stuck PENDING fragments', tags: ['Admin'], auth: 'none', responses: { '200': { description: 'Re-enqueue results', schemaName: 'retryStuckResponseSchema' } } },
-
-  // ── Internal ─────────────────────────────────────────────────────────────
-  { method: 'POST', path: '/internal/sync-notify', operationId: 'syncNotify', summary: 'Gateway sync notification (HMAC)', tags: ['Internal'], auth: 'hmac', request: { body: { schemaName: 'syncNotifyPayloadSchema' } }, responses: { '202': { description: 'Sync job accepted', schemaName: 'syncAcceptedResponseSchema' }, '400': { description: 'Invalid payload', schemaName: 'errorResponseSchema' }, '401': { description: 'Invalid HMAC', schemaName: 'errorResponseSchema' } } },
 
   // ── MCP ──────────────────────────────────────────────────────────────────
   { method: 'POST', path: '/mcp', operationId: 'mcpTransport', summary: 'MCP Streamable HTTP transport (JWT)', tags: ['MCP'], auth: 'jwt', responses: { '200': { description: 'MCP protocol response' }, '401': { description: 'Invalid token', schemaName: 'errorResponseSchema' } } },

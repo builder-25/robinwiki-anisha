@@ -1,29 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { type CSSProperties } from "react";
+import { ArrowLeft, Check, X } from "lucide-react";
 import { T, FONT } from "@/lib/typography";
 import {
   WikiEntityArticle,
-  WikiLink,
   WikiSectionH2,
 } from "@/components/wiki/WikiEntityArticle";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
+import { useFragment } from "@/hooks/useFragment";
+import { useAcceptFragment } from "@/hooks/useAcceptFragment";
+import { useRejectFragment } from "@/hooks/useRejectFragment";
+import { MarkdownContent } from "@/components/wiki/MarkdownContent";
+import type { FragmentWithContentResponseSchema } from "@/lib/generated/types.gen";
 
-const FRAGMENT = {
-  title: "Instability and Collapse of the Weimar Republic",
-  type: "fact",
-  tags: ["germany", "history", "weimar-republic", "economic-crisis"],
-  createdAt: "8 Apr 2026",
+type FragmentData = FragmentWithContentResponseSchema & {
+  backlinks?: Array<{ id: string; name: string; type: string }>;
 };
 
-const ENTRY_ORIGIN = {
-  id: "entry01SAMPLE",
-  title: "Summary of German History",
-  status: "extracted",
-};
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
-function FragmentInfobox() {
+function FragmentInfobox({ fragment }: { fragment: FragmentData }) {
   const label: CSSProperties = {
     ...T.micro,
     fontWeight: 700,
@@ -56,17 +59,19 @@ function FragmentInfobox() {
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
         <p style={label}>Type</p>
-        <p style={body}>{FRAGMENT.type}</p>
+        <p style={body}>{fragment.type}</p>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-        <p style={label}>Tags</p>
-        <p style={body}>{FRAGMENT.tags.join(", ")}</p>
-      </div>
+      {fragment.tags.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          <p style={label}>Tags</p>
+          <p style={body}>{fragment.tags.join(", ")}</p>
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
         <p style={label}>Created</p>
-        <p style={body}>{FRAGMENT.createdAt}</p>
+        <p style={body}>{formatDate(fragment.createdAt)}</p>
       </div>
     </aside>
   );
@@ -88,7 +93,7 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function EntryOriginSection() {
+function EntryOriginSection({ entryId }: { entryId: string }) {
   const bodyStyle = {
     ...T.bodySmall,
     color: "var(--wiki-article-text)",
@@ -109,122 +114,210 @@ function EntryOriginSection() {
         }}
       >
         <li>
-          <div
+          <Link
+            href={`/wiki/entries/${entryId}`}
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
+              color: "var(--wiki-fragment-link)",
+              textDecoration: "underline",
+              textDecorationSkipInk: "none",
             }}
           >
-            <Link
-              href={`/wiki/entries/${ENTRY_ORIGIN.id}`}
-              style={{
-                color: "var(--wiki-fragment-link)",
-                textDecoration: "underline",
-                textDecorationSkipInk: "none",
-              }}
-            >
-              {ENTRY_ORIGIN.title}
-            </Link>
-            <Badge
-              variant="outline"
-              className="rounded-full"
-              style={{
-                backgroundColor: "#f5f5f5",
-                color: "#545353",
-                borderColor: "#d1d5db",
-                padding: "2px 10px",
-                ...T.micro,
-              }}
-            >
-              {ENTRY_ORIGIN.status}
-            </Badge>
-          </div>
+            View source entry
+          </Link>
         </li>
       </ul>
     </section>
   );
 }
 
-function WikisSection() {
+function BacklinksSection({ backlinks }: { backlinks: Array<{ id: string; name: string; type: string }> }) {
   return (
     <section style={{ width: "100%" }}>
-      <WikiSectionH2 title="Wikis" count={0} />
-      <EmptyState text="Not filed in any wiki" />
+      <WikiSectionH2 title="Wikis" count={backlinks.length} />
+      {backlinks.length === 0 ? (
+        <EmptyState text="Not filed in any wiki" />
+      ) : (
+        <ul
+          style={{
+            ...T.bodySmall,
+            color: "var(--wiki-article-text)",
+            lineHeight: 1.6,
+            listStyle: "decimal",
+            paddingLeft: 20,
+            margin: "12px 0 0 0",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          {backlinks.map((bl) => (
+            <li key={bl.id}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <Link
+                  href={`/wiki/${bl.id}`}
+                  style={{
+                    color: "var(--wiki-fragment-link)",
+                    textDecoration: "underline",
+                    textDecorationSkipInk: "none",
+                  }}
+                >
+                  {bl.name}
+                </Link>
+                <Badge
+                  variant="outline"
+                  className="rounded-full"
+                  style={{
+                    backgroundColor: "#f5f5f5",
+                    color: "#545353",
+                    borderColor: "#d1d5db",
+                    padding: "2px 10px",
+                    ...T.micro,
+                  }}
+                >
+                  {bl.type}
+                </Badge>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
 
-function PeopleSection() {
-  return (
-    <section style={{ width: "100%" }}>
-      <WikiSectionH2 title="People" count={0} />
-      <EmptyState text="No people mentioned" />
-    </section>
-  );
-}
-
-function RelatedFragmentsSection() {
-  return (
-    <section style={{ width: "100%" }}>
-      <WikiSectionH2 title="Related fragments" count={0} />
-      <EmptyState text="No related fragments" />
-    </section>
-  );
-}
-
-function FragmentBottomSections() {
+function FragmentBottomSections({ fragment }: { fragment: FragmentData }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 40, width: "100%" }}>
-      <EntryOriginSection />
-      <WikisSection />
-      <PeopleSection />
-      <RelatedFragmentsSection />
+      <EntryOriginSection entryId={fragment.entryId} />
+      <BacklinksSection backlinks={fragment.backlinks ?? []} />
+    </div>
+  );
+}
+
+function FragmentReviewActions({ fragmentId, backlinks }: { fragmentId: string; backlinks: Array<{ id: string; name: string; type: string }> }) {
+  const router = useRouter();
+  const accept = useAcceptFragment();
+  const reject = useRejectFragment();
+
+  if (backlinks.length === 0) return null;
+
+  const wikiId = backlinks[0].id;
+  const isPending = accept.isPending || reject.isPending;
+
+  const btnBase: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "4px 10px",
+    fontSize: 12,
+    background: "none",
+    border: "1px solid var(--wiki-card-border)",
+    cursor: isPending ? "default" : "pointer",
+    opacity: isPending ? 0.6 : 1,
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() =>
+          accept.mutate({ id: fragmentId, wikiId }, {
+            onSuccess: () => router.push(`/wiki/${wikiId}`),
+          })
+        }
+        style={{ ...btnBase, color: "#16a34a" }}
+      >
+        <Check size={14} strokeWidth={1.5} />
+        {accept.isPending ? "Accepting..." : "Accept"}
+      </button>
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() =>
+          reject.mutate({ id: fragmentId, wikiId }, {
+            onSuccess: () => router.push(`/wiki/${wikiId}`),
+          })
+        }
+        style={{ ...btnBase, color: "red" }}
+      >
+        <X size={14} strokeWidth={1.5} />
+        {reject.isPending ? "Rejecting..." : "Reject"}
+      </button>
+      {accept.isSuccess && (
+        <span style={{ fontSize: 12, color: "#16a34a" }}>Fragment accepted</span>
+      )}
+      {reject.isSuccess && (
+        <span style={{ fontSize: 12, color: "red" }}>Fragment rejected</span>
+      )}
+      {(accept.isError || reject.isError) && (
+        <span style={{ fontSize: 12, color: "red" }}>
+          {accept.isError ? "Failed to accept" : "Failed to reject"}
+        </span>
+      )}
     </div>
   );
 }
 
 export default function FragmentPage() {
+  const { id } = useParams<{ id: string }>();
+  const { data: fragment, isLoading, error } = useFragment(id);
+
   const bodyStyle = {
     ...T.bodySmall,
     color: "var(--wiki-article-text)",
     lineHeight: 1.6,
   };
 
-  return (
-    <WikiEntityArticle
-      chipLabel="Fragment"
-      title={FRAGMENT.title}
-      infobox={{ kind: "simple", typeLabel: "Fragment", showSettings: false }}
-      renderCustomInfobox={() => <FragmentInfobox />}
-      showDefaultBottomSections={false}
-      customBottomSections={<FragmentBottomSections />}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, ...bodyStyle }}>
-        <p style={{ margin: 0 }}>
-          The Weimar Republic faced compounding pressures from the moment of its
-          founding in 1919: war reparations under the Treaty of Versailles, a
-          fragile coalition government, and a public still reeling from the losses
-          of the First World War. By the early 1920s, hyperinflation had
-          destroyed middle-class savings and fuelled deep distrust of the
-          democratic order.
-        </p>
-        <p style={{ margin: 0 }}>
-          The 1929 Wall Street Crash triggered the next and decisive crisis.
-          American loans that had propped up German industry were withdrawn; mass
-          unemployment followed within months. The Reichstag fractured into
-          increasingly extreme blocs, and Chancellor <WikiLink>Heinrich Brüning</WikiLink>
-          {" "}governed by emergency decree as the constitutional order thinned.
-        </p>
-        <p style={{ margin: 0 }}>
-          By 1933 the republic had effectively collapsed from within — not by
-          invasion but by the slow erosion of the institutions meant to hold it
-          up. The appointment of <WikiLink>Adolf Hitler</WikiLink> as Chancellor
-          in January of that year marked the formal end of the republican
-          experiment, though its substance had given way long before.
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Spinner className="size-6" />
+      </div>
+    );
+  }
+
+  if (error || !fragment) {
+    return (
+      <div className="p-6">
+        <h1 style={T.h1}>Fragment not found</h1>
+        <p style={{ ...T.bodySmall, color: "var(--wiki-article-text)", marginTop: 8 }}>
+          This fragment could not be loaded. It may have been deleted or you may not have access.
         </p>
       </div>
+    );
+  }
+
+  const frag = fragment as FragmentData;
+  const backlinks = frag.backlinks ?? [];
+
+  return (
+    <>
+    <Link href="/wiki" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--wiki-count)", textDecoration: "none", marginBottom: 12 }}>
+      <ArrowLeft size={14} strokeWidth={1.5} />
+      <span style={{ ...T.micro }}>Back</span>
+    </Link>
+    <WikiEntityArticle
+      chipLabel="Fragment"
+      title={frag.title}
+      infobox={{ kind: "simple", typeLabel: "Fragment", showSettings: false }}
+      renderCustomInfobox={() => <FragmentInfobox fragment={frag} />}
+      customBottomSections={
+        <>
+          <FragmentReviewActions fragmentId={frag.id} backlinks={backlinks} />
+          <FragmentBottomSections fragment={frag} />
+        </>
+      }
+    >
+      <MarkdownContent content={frag.content} style={bodyStyle} />
     </WikiEntityArticle>
+    </>
   );
 }

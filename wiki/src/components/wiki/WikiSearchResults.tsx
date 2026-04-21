@@ -121,15 +121,26 @@ function IconWiki() {
 }
 
 interface SearchResultItem {
-  fragmentId: string;
+  id: string;
+  type: string;
   title: string;
   snippet: string;
   score: number;
-  tags: string[];
+}
+
+function hrefForResult(item: SearchResultItem): string {
+  switch (item.type) {
+    case "person":
+      return `/wiki/people/${item.id}`;
+    case "wiki":
+    case "thread":
+      return `/wiki/${item.id}`;
+    default:
+      return `/wiki/fragments/${item.id}`;
+  }
 }
 
 function SearchResultRow({ item }: { item: SearchResultItem }) {
-  const firstTag = item.tags[0];
   return (
     <div
       className="flex w-full flex-col items-start"
@@ -141,7 +152,7 @@ function SearchResultRow({ item }: { item: SearchResultItem }) {
           style={{ gap: 6 }}
         >
           <Link
-            href={`/wiki/fragments/${item.fragmentId}`}
+            href={hrefForResult(item)}
             className="wiki-search-result-title-link min-w-0"
             style={{
               ...T.h4,
@@ -155,7 +166,7 @@ function SearchResultRow({ item }: { item: SearchResultItem }) {
           >
             {item.title}
           </Link>
-          {firstTag && <WikiTypeBadge type={firstTag} />}
+          <WikiTypeBadge type={item.type} />
         </div>
       </div>
       {item.snippet && (
@@ -181,12 +192,6 @@ function SearchResultRow({ item }: { item: SearchResultItem }) {
         <span style={{ lineHeight: "17px" }}>
           Score: {(item.score * 100).toFixed(0)}%
         </span>
-        {item.tags.length > 0 && (
-          <>
-            <span style={{ lineHeight: "10px" }}>•</span>
-            <span style={{ lineHeight: "17px" }}>{item.tags.join(", ")}</span>
-          </>
-        )}
       </div>
     </div>
   );
@@ -212,15 +217,26 @@ export default function WikiSearchResults({ query }: { query: string }) {
 
   const results = useMemo<SearchResultItem[]>(() => {
     return (searchQuery.data?.results ?? []).map((r) => ({
-      fragmentId: r.fragmentId,
+      id: r.id,
+      type: r.type,
       title: r.title,
-      snippet: r.fragment,
+      snippet: r.snippet,
       score: r.score,
-      tags: r.tags ?? [],
     }));
   }, [searchQuery.data]);
 
   const totalCount = results.length;
+  const fragmentCount = results.filter((r) => r.type === "fragment").length;
+  const wikiCount = results.filter((r) => r.type === "wiki").length;
+  const peopleCount = results.filter((r) => r.type === "person").length;
+
+  const filtered = useMemo(() => {
+    if (filter === "all") return results;
+    if (filter === "fragments") return results.filter((r) => r.type === "fragment");
+    if (filter === "wiki") return results.filter((r) => r.type === "wiki");
+    if (filter === "people") return results.filter((r) => r.type === "person");
+    return results;
+  }, [results, filter]);
 
   return (
     <div
@@ -263,10 +279,26 @@ export default function WikiSearchResults({ query }: { query: string }) {
         />
         <FilterChip
           icon={<IconFileCode />}
-          label={`Fragments (${totalCount})`}
+          label={`Fragments (${fragmentCount})`}
           active={filter === "fragments"}
           onClick={() => setFilter("fragments")}
         />
+        {wikiCount > 0 && (
+          <FilterChip
+            icon={<IconWiki />}
+            label={`Wiki (${wikiCount})`}
+            active={filter === "wiki"}
+            onClick={() => setFilter("wiki")}
+          />
+        )}
+        {peopleCount > 0 && (
+          <FilterChip
+            icon={<IconUserRound />}
+            label={`People (${peopleCount})`}
+            active={filter === "people"}
+            onClick={() => setFilter("people")}
+          />
+        )}
       </div>
 
       {searchQuery.isLoading ? (
@@ -285,9 +317,9 @@ export default function WikiSearchResults({ query }: { query: string }) {
         <div className="flex w-full flex-col items-start" style={{ gap: 64 }}>
           <section className="w-full">
             <div className="flex w-full flex-col" style={{ gap: 8 }}>
-              <WikiSectionH2 title="Results" count={totalCount} />
-              {results.map((item) => (
-                <SearchResultRow key={item.fragmentId} item={item} />
+              <WikiSectionH2 title="Results" count={filtered.length} />
+              {filtered.map((item) => (
+                <SearchResultRow key={item.id} item={item} />
               ))}
             </div>
           </section>

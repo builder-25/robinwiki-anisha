@@ -11,7 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export const PROMPT_ICONS_BY_SLUG: Record<string, LucideIcon> = {
+const PROMPT_ICONS_BY_SLUG: Record<string, LucideIcon> = {
   log: BookOpen,
   research: Lightbulb,
   belief: Scale,

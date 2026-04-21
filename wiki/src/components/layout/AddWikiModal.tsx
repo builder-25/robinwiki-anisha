@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { WikiSettingsPrefill } from "@/lib/wikiSettingsPrefill";
 import {
@@ -72,10 +71,6 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-const FOLDERS = [
-  { value: "default", label: "Default" },
-  { value: "archive", label: "Archive" },
-];
 
 export default function AddWikiModal({
   open,
@@ -88,10 +83,7 @@ export default function AddWikiModal({
   const wasOpen = useRef(false);
   const [name, setName] = useState("");
   const [wikiType, setWikiType] = useState("");
-  const [folder, setFolder] = useState("");
   const [description, setDescription] = useState("");
-  const [regenAuto, setRegenAuto] = useState(false);
-  const [gatekeep, setGatekeep] = useState(false);
   const [subtitle, setSubtitle] = useState<string | undefined>(undefined);
   /** Wiki prompt state (emulated local state; will move to OS.robin store later) */
   const [wikiPrompt, setWikiPrompt] = useState<string>("");
@@ -101,6 +93,7 @@ export default function AddWikiModal({
   /** Existing-wiki settings: form read-only until user clicks Edit Wiki */
   const [fieldsEditable, setFieldsEditable] = useState(true);
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("Saved");
   const saveCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevWikiTypeRef = useRef<string>("");
 
@@ -113,29 +106,11 @@ export default function AddWikiModal({
   const { data: wikiTypesData, isLoading: typesLoading } = useWikiTypesList();
 
   // API returns YAML-backed types only; `people` has no YAML on disk.
-  // RESEARCH §Risk 4: append a synthetic entry so prefill flows that pass
-  // wikiType='people' still find an option.
   const sortedTypes = useMemo<WikiTypeListItem[]>(() => {
     const apiList = wikiTypesData?.wikiTypes ?? [];
-    const sorted = [...apiList].sort((a, b) =>
-      a.displayLabel.localeCompare(b.displayLabel),
-    );
-    const hasPeople = sorted.some((t) => t.slug === "people");
-    if (!hasPeople) {
-      sorted.push({
-        slug: "people",
-        displayLabel: "People",
-        displayDescription: "",
-        displayShortDescriptor: "",
-        displayOrder: 999,
-        promptYaml: "",
-        defaultYaml: "",
-        userModified: false,
-        basedOnVersion: 0,
-        inputVariables: [],
-      });
-    }
-    return sorted;
+    return [...apiList]
+      .filter((t) => t.slug !== "people")
+      .sort((a, b) => a.displayLabel.localeCompare(b.displayLabel));
   }, [wikiTypesData?.wikiTypes]);
 
   useEffect(() => {
@@ -152,10 +127,7 @@ export default function AddWikiModal({
           const nextType = prefill.wikiType ?? "";
           setName(prefill.name ?? "");
           setWikiType(nextType);
-          setFolder(prefill.folder ?? "");
           setDescription(prefill.description ?? "");
-          setRegenAuto(prefill.regenAuto ?? false);
-          setGatekeep(prefill.gatekeep ?? false);
           setSubtitle(prefill.subtitle);
           setWikiPrompt(prefill.promptOverride ?? "");
           setWikiPromptEdited(
@@ -168,10 +140,7 @@ export default function AddWikiModal({
         } else {
           setName("");
           setWikiType("");
-          setFolder("");
           setDescription("");
-          setRegenAuto(false);
-          setGatekeep(false);
           setSubtitle(undefined);
           setWikiPrompt("");
           setWikiPromptEdited(false);
@@ -234,6 +203,7 @@ export default function AddWikiModal({
           saveCloseTimerRef.current = null;
         }
         onClose();
+        setToastMessage("Saved");
         setShowSavedToast(true);
         saveCloseTimerRef.current = setTimeout(() => {
           setShowSavedToast(false);
@@ -270,6 +240,7 @@ export default function AddWikiModal({
         await queryClient.invalidateQueries({ queryKey: ["wikis"] });
         await queryClient.invalidateQueries({ queryKey: ["wiki", wikiId] });
         onClose();
+        setToastMessage("Saved");
         setShowSavedToast(true);
         if (saveCloseTimerRef.current) {
           clearTimeout(saveCloseTimerRef.current);
@@ -325,6 +296,15 @@ export default function AddWikiModal({
       }
       await queryClient.invalidateQueries({ queryKey: ["wikis"] });
       onClose();
+      setToastMessage("Wiki created");
+      setShowSavedToast(true);
+      if (saveCloseTimerRef.current) {
+        clearTimeout(saveCloseTimerRef.current);
+      }
+      saveCloseTimerRef.current = setTimeout(() => {
+        setShowSavedToast(false);
+        saveCloseTimerRef.current = null;
+      }, 2000);
     } catch {
       setSubmitError("Network error. Check your connection and retry.");
     } finally {
@@ -498,87 +478,7 @@ export default function AddWikiModal({
             })()}
           </div>
 
-          {/* Folder */}
-          <div className="px-5 pt-4 flex flex-col gap-2">
-            <FieldLabel>
-              Folder <InfoIcon className="text-[#545353]" />
-            </FieldLabel>
-            <div className="relative">
-              <select
-                value={folder}
-                onChange={(e) => setFolder(e.target.value)}
-                disabled
-                aria-label="Folder"
-                className="flex h-10 w-full items-center rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none appearance-none disabled:cursor-not-allowed disabled:opacity-50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                style={{ color: folder ? "#111111" : "#a8a8a8" }}
-              >
-                <option value="">Choose a folder</option>
-                {FOLDERS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#a8a8a8]"
-              >
-                <path
-                  d="M4 6l4 4 4-4"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-          </div>
-
-          {/* Toggles */}
-          <div className="flex flex-col gap-3 px-5 pt-8 pb-5">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 min-w-0">
-                <span
-                  style={{
-                    ...T.body,
-                    color: "#6f6f6f",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Regenerate Wiki Automatically?
-                </span>
-                <InfoIcon className="text-[#6f6f6f]" />
-              </div>
-              <Switch
-                checked={regenAuto}
-                onCheckedChange={setRegenAuto}
-                disabled
-              />
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 min-w-0">
-                <span
-                  style={{
-                    ...T.body,
-                    color: "#6f6f6f",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Gatekeep this Wiki?
-                </span>
-                <InfoIcon className="text-[#6f6f6f]" />
-              </div>
-              <Switch
-                checked={gatekeep}
-                onCheckedChange={setGatekeep}
-                disabled
-              />
-            </div>
-          </div>
+          <div className="pb-5" />
 
           {submitError ? (
             <div
@@ -696,7 +596,7 @@ export default function AddWikiModal({
             pointerEvents: "none",
           }}
         >
-          Saved
+          {toastMessage}
         </div>
       ) : null}
     </>

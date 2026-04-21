@@ -33,10 +33,10 @@ const BulletDot = () => (
 );
 
 export default function RecentlyUpdated() {
-  const wikisQuery = useWikis({ limit: 5 });
+  const wikisQuery = useWikis();
 
   const items = useMemo(() => {
-    const threads = wikisQuery.data?.threads ?? [];
+    const threads = wikisQuery.data?.wikis ?? [];
     // Sort by updatedAt descending and take the first 5
     return [...threads]
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())

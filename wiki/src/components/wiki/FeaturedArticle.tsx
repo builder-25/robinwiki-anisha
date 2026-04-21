@@ -20,10 +20,10 @@ function capitalize(s: string): string {
 }
 
 export default function FeaturedArticle() {
-  const wikisQuery = useWikis({ limit: 10 });
+  const wikisQuery = useWikis();
 
   // Pick the wiki with the highest noteCount as the "featured" article
-  const featured = wikisQuery.data?.threads
+  const featured = wikisQuery.data?.wikis
     ?.slice()
     .sort((a, b) => (b.noteCount ?? 0) - (a.noteCount ?? 0))[0] ?? null;
 

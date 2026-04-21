@@ -23,7 +23,6 @@ export type CreateEntryBodySchema = {
     title?: string;
     source?: string;
     type?: string;
-    vaultId?: string;
 };
 
 export type EntryListQuerySchema = {
@@ -33,15 +32,13 @@ export type EntryListQuerySchema = {
 export type EntryResponseSchema = {
     id: string;
     lookupKey: string;
-    userId: string;
     slug: string;
     title: string;
     content: string;
     type: string;
     source: string;
-    vaultId: string;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
-    repoPath: string;
+    ingestStatus: string;
     createdAt: string;
     updatedAt: string;
 };
@@ -49,23 +46,33 @@ export type EntryResponseSchema = {
 export type EntryCreatedResponseSchema = {
     id: string;
     lookupKey: string;
-    userId: string;
     slug: string;
     title: string;
     content: string;
     type: string;
     source: string;
-    vaultId: string;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
-    repoPath: string;
+    ingestStatus: string;
     createdAt: string;
     updatedAt: string;
     jobId: string;
-    status: 'queued';
+    status: 'queued' | 'duplicate';
 };
 
 export type EntryListResponseSchema = {
-    entries: Array<EntryResponseSchema>;
+    entries: Array<{
+        id: string;
+        lookupKey: string;
+        slug: string;
+        title: string;
+        content: string;
+        type: string;
+        source: string;
+        state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
+        ingestStatus: string;
+        createdAt: string;
+        updatedAt: string;
+    }>;
 };
 
 export type CreateFragmentBodySchema = {
@@ -81,27 +88,21 @@ export type UpdateFragmentBodySchema = {
     tags?: Array<string>;
 };
 
-export type FragmentReviewBodySchema = {
-    wikiId: string;
-};
-
 export type FragmentListQuerySchema = {
     limit?: number;
     offset?: number;
-    vaultId?: string;
 };
 
 export type FragmentResponseSchema = {
     id: string;
     lookupKey: string;
-    userId: string;
     slug: string;
     title: string;
     type: string;
     tags: Array<string>;
+    confidence?: number;
     entryId: string;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
-    repoPath: string;
     createdAt: string;
     updatedAt: string;
 };
@@ -109,20 +110,31 @@ export type FragmentResponseSchema = {
 export type FragmentWithContentResponseSchema = {
     id: string;
     lookupKey: string;
-    userId: string;
     slug: string;
     title: string;
     type: string;
     tags: Array<string>;
+    confidence?: number;
     entryId: string;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
-    repoPath: string;
     createdAt: string;
     updatedAt: string;
     content: string;
 };
 
-export type FragmentDetailResponseSchema = FragmentWithContentResponseSchema & {
+export type FragmentDetailResponseSchema = {
+    id: string;
+    lookupKey: string;
+    slug: string;
+    title: string;
+    type: string;
+    tags: Array<string>;
+    confidence?: number;
+    entryId: string;
+    state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
+    createdAt: string;
+    updatedAt: string;
+    content: string;
     backlinks: Array<{
         id: string;
         name: string;
@@ -131,12 +143,29 @@ export type FragmentDetailResponseSchema = FragmentWithContentResponseSchema & {
 };
 
 export type FragmentListResponseSchema = {
-    fragments: Array<FragmentResponseSchema>;
+    fragments: Array<{
+        id: string;
+        lookupKey: string;
+        slug: string;
+        title: string;
+        type: string;
+        tags: Array<string>;
+        confidence?: number;
+        entryId: string;
+        state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
+        createdAt: string;
+        updatedAt: string;
+    }>;
+};
+
+export type FragmentReviewBodySchema = {
+    wikiId: string;
 };
 
 export type CreateThreadBodySchema = {
     name: string;
     type?: string;
+    description?: string;
     prompt?: string;
 };
 
@@ -149,45 +178,101 @@ export type UpdateThreadBodySchema = {
 export type ThreadResponseSchema = {
     id: string;
     lookupKey: string;
-    userId: string;
     slug: string;
     name: string;
     type: string;
     prompt: string;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
-    repoPath: string;
-    vaultId: string;
     lastRebuiltAt: string;
     createdAt: string;
     updatedAt: string;
     noteCount?: number;
     lastUpdated: string;
+    shortDescriptor?: string;
+    descriptor?: string;
+    progress?: {
+        milestones: Array<{
+            label: string;
+            completed: boolean;
+        }>;
+        percentage: number;
+    };
 };
 
 export type ThreadWithWikiResponseSchema = {
     id: string;
     lookupKey: string;
-    userId: string;
     slug: string;
     name: string;
     type: string;
     prompt: string;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
-    repoPath: string;
-    vaultId: string;
     lastRebuiltAt: string;
     createdAt: string;
     updatedAt: string;
     noteCount?: number;
     lastUpdated: string;
+    shortDescriptor?: string;
+    descriptor?: string;
+    progress?: {
+        milestones: Array<{
+            label: string;
+            completed: boolean;
+        }>;
+        percentage: number;
+    };
     wikiContent: string;
 };
 
 export type ThreadListResponseSchema = {
-    threads: Array<ThreadResponseSchema>;
+    wikis: Array<{
+        id: string;
+        lookupKey: string;
+        slug: string;
+        name: string;
+        type: string;
+        prompt: string;
+        state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
+        lastRebuiltAt: string;
+        createdAt: string;
+        updatedAt: string;
+        noteCount?: number;
+        lastUpdated: string;
+        shortDescriptor?: string;
+        descriptor?: string;
+        progress?: {
+            milestones: Array<{
+                label: string;
+                completed: boolean;
+            }>;
+            percentage: number;
+        };
+    }>;
 };
 
-export type WikiDetailResponseSchema = ThreadWithWikiResponseSchema & {
+export type WikiDetailResponseSchema = {
+    id: string;
+    lookupKey: string;
+    slug: string;
+    name: string;
+    type: string;
+    prompt: string;
+    state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
+    lastRebuiltAt: string;
+    createdAt: string;
+    updatedAt: string;
+    noteCount?: number;
+    lastUpdated: string;
+    shortDescriptor?: string;
+    descriptor?: string;
+    progress?: {
+        milestones: Array<{
+            label: string;
+            completed: boolean;
+        }>;
+        percentage: number;
+    };
+    wikiContent: string;
     fragments: Array<{
         id: string;
         slug: string;
@@ -232,6 +317,23 @@ export type ToggleRegenerateResponseSchema = {
     regenerate: boolean;
 };
 
+export type UpdateProgressBodySchema = {
+    milestones: Array<{
+        label: string;
+        completed: boolean;
+    }>;
+};
+
+export type UpdateProgressResponseSchema = {
+    progress: {
+        milestones: Array<{
+            label: string;
+            completed: boolean;
+        }>;
+        percentage: number;
+    };
+};
+
 export type WikiTypeResponseSchema = {
     slug: string;
     name: string;
@@ -240,12 +342,24 @@ export type WikiTypeResponseSchema = {
     prompt: string;
     isDefault: boolean;
     userModified: boolean;
+    basedOnVersion: number;
     createdAt: string;
     updatedAt: string;
 };
 
 export type WikiTypeListResponseSchema = {
-    wikiTypes: Array<WikiTypeResponseSchema>;
+    wikiTypes: Array<{
+        slug: string;
+        name: string;
+        shortDescriptor: string;
+        descriptor: string;
+        prompt: string;
+        isDefault: boolean;
+        userModified: boolean;
+        basedOnVersion: number;
+        createdAt: string;
+        updatedAt: string;
+    }>;
 };
 
 export type CreateWikiTypeBodySchema = {
@@ -263,47 +377,58 @@ export type UpdateWikiTypeBodySchema = {
     prompt?: string;
 };
 
-export type AuditEventSchema = {
-    id: string;
-    entityType: string;
-    entityId: string;
-    eventType: string;
-    source?: string;
-    summary: string;
-    detail?: unknown;
-    createdAt: string;
-};
-
-export type AuditLogResponseSchema = {
-    events: Array<AuditEventSchema>;
-    total: number;
-};
-
 export type PersonResponseSchema = {
     id: string;
     lookupKey: string;
-    userId: string;
     slug: string;
     name: string;
     relationship: string;
-    sections?: unknown;
+    canonicalName: string;
+    aliases: Array<string>;
+    verified: boolean;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
-    repoPath: string;
     lastRebuiltAt: string;
     createdAt: string;
     updatedAt: string;
 };
 
-export type PersonWithBacklinksResponseSchema = {
+export type PersonDetailResponseSchema = {
     id: string;
     lookupKey: string;
-    userId: string;
     slug: string;
     name: string;
     relationship: string;
-    sections?: unknown;
+    canonicalName: string;
+    aliases: Array<string>;
+    verified: boolean;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
-    repoPath: string;
+    lastRebuiltAt: string;
+    createdAt: string;
+    updatedAt: string;
+    content: string;
+    backlinks: Array<{
+        id: string;
+        title: string;
+    }>;
+    wikis?: Array<{
+        id: string;
+        name: string;
+        slug: string;
+        type: string;
+        fragmentCount: number;
+    }>;
+};
+
+export type PersonWithBacklinksResponseSchema = {
+    id: string;
+    lookupKey: string;
+    slug: string;
+    name: string;
+    relationship: string;
+    canonicalName: string;
+    aliases: Array<string>;
+    verified: boolean;
+    state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
     lastRebuiltAt: string;
     createdAt: string;
     updatedAt: string;
@@ -312,14 +437,19 @@ export type PersonWithBacklinksResponseSchema = {
 };
 
 export type PersonListResponseSchema = {
-    people: Array<PersonResponseSchema>;
-};
-
-export type PersonDetailResponseSchema = PersonResponseSchema & {
-    content: string;
-    backlinks: Array<{
+    people: Array<{
         id: string;
-        title: string;
+        lookupKey: string;
+        slug: string;
+        name: string;
+        relationship: string;
+        canonicalName: string;
+        aliases: Array<string>;
+        verified: boolean;
+        state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
+        lastRebuiltAt: string;
+        createdAt: string;
+        updatedAt: string;
     }>;
 };
 
@@ -330,60 +460,25 @@ export type UpdatePersonBodySchema = {
     content?: string;
 };
 
-export type CreateVaultBodySchema = {
-    name: string;
-    icon?: string;
-    description?: string;
-    color?: string;
-};
-
-export type UpdateVaultBodySchema = {
-    name?: string;
-    icon?: string;
-    description?: string;
-    profile?: string;
-    color?: string;
-};
-
-export type UpdateVaultProfileBodySchema = {
-    profile: string;
-};
-
-export type VaultResponseSchema = {
-    id: string;
-    userId: string;
-    name: string;
-    slug: string;
-    icon: string;
-    description: string;
-    profile: string;
-    color: string;
-    type: 'user' | 'system' | 'inbox';
-    createdAt: string;
-    updatedAt: string;
-    threadCount?: number;
-    noteCount?: number;
-};
-
-export type VaultListResponseSchema = {
-    vaults: Array<VaultResponseSchema>;
+export type PersonListQuerySchema = {
+    limit?: number;
+    offset?: number;
 };
 
 export type SearchQuerySchema = {
     q: string;
     limit?: number;
-    minScore?: number;
+    tables?: (unknown | string) & Array<'fragment' | 'wiki' | 'person'>;
+    mode?: 'hybrid' | 'bm25' | 'vector';
 };
 
 export type SearchResponseSchema = {
     results: Array<{
-        score: number;
-        fragmentId: string;
+        id: string;
+        type: 'fragment' | 'wiki' | 'person';
         title: string;
-        fragment: string;
-        tags: Array<string>;
-        vaultId?: string;
-        threadId?: string;
+        snippet: string;
+        score: number;
     }>;
 };
 
@@ -423,8 +518,7 @@ export type McpEndpointResponseSchema = {
 
 export type ExportDataResponseSchema = {
     exportedAt: string;
-    vaults: Array<unknown>;
-    threads: Array<unknown>;
+    wikis: Array<unknown>;
     fragments: Array<unknown>;
     people: Array<unknown>;
 };
@@ -433,9 +527,9 @@ export type GraphResponseSchema = {
     nodes: Array<{
         id: string;
         label: string;
-        type: 'thread' | 'fragment' | 'person' | 'entry' | 'vault';
-        vaultId: string;
+        type: 'wiki' | 'fragment' | 'person' | 'entry';
         size: number;
+        snippet?: string;
     }>;
     edges: Array<{
         source: string;
@@ -455,12 +549,23 @@ export type RelationshipsResponseSchema = {
     };
 };
 
+export type ContentRawResponseSchema = {
+    content: string;
+};
+
+export type ContentStructuredResponseSchema = {
+    frontmatter: {
+        [key: string]: unknown;
+    };
+    body: string;
+    raw: string;
+};
+
 export type RetryStuckDryRunResponseSchema = {
     dryRun: true;
     count: number;
     fragments: Array<{
         fragmentKey: string;
-        userId: string;
         entryKey: string;
     }>;
 };
@@ -474,80 +579,45 @@ export type RetryStuckResponseSchema = {
     minutes: number;
 };
 
-export type SyncNotifyPayloadSchema = {
-    userId: string;
-    commitHash: string;
-    files: Array<{
-        path: string;
-        operation: 'add' | 'modify' | 'delete';
-        content: string;
-        frontmatterHash?: string;
-        bodyHash?: string;
-        contentHash?: string;
+export type AuditLogResponseSchema = {
+    events: Array<{
+        id: string;
+        entityType: string;
+        entityId: string;
+        eventType: string;
+        source: string;
+        summary: string;
+        detail?: unknown;
+        createdAt: string;
     }>;
+    total: number;
 };
 
-export type SyncAcceptedResponseSchema = {
-    status: 'accepted';
+export type AuditLogQuerySchema = {
+    entityType?: string;
+    entityId?: string;
+    eventType?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
 };
 
-export type ContentRawResponseSchema = {
-    content: string;
+export type AuditEventSchema = {
+    id: string;
+    entityType: string;
+    entityId: string;
+    eventType: string;
+    source: string;
+    summary: string;
+    detail?: unknown;
+    createdAt: string;
 };
 
-export type ContentStructuredResponseSchema = {
-    frontmatter: {
-        [key: string]: unknown;
-    };
-    body: string;
-    raw: string;
+export type TimelineQuerySchema = {
+    limit?: number;
+    offset?: number;
 };
-
-export type FragmentWriteSchema = {
-    frontmatter: {
-        title: string;
-        tags?: Array<string>;
-        threadKeys?: Array<string>;
-        personKeys?: Array<string>;
-        relatedFragmentKeys?: Array<string>;
-    };
-    body: string;
-};
-
-export type EntryWriteSchema = {
-    frontmatter: {
-        title: string;
-        tags?: Array<string>;
-    };
-};
-
-export type WikiWriteSchema = {
-    frontmatter: {
-        name: string;
-        type?: string;
-        prompt?: string;
-    };
-    body: string;
-};
-
-export type PersonWriteSchema = {
-    frontmatter: {
-        name: string;
-        relationship?: string;
-        aliases?: Array<string>;
-    };
-    body: string;
-};
-
-/**
- * Resource ID or lookup key
- */
-export type Id = string;
-
-/**
- * Vault ID
- */
-export type VaultId = string;
 
 export type GetHealthData = {
     body?: never;
@@ -623,9 +693,6 @@ export type CreateEntryResponse = CreateEntryResponses[keyof CreateEntryResponse
 export type GetEntryData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -653,9 +720,6 @@ export type GetEntryResponse = GetEntryResponses[keyof GetEntryResponses];
 export type ListEntryFragmentsData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -685,6 +749,7 @@ export type ListFragmentsData = {
     path?: never;
     query?: {
         limit?: number;
+        offset?: number;
     };
     url: '/fragments';
 };
@@ -726,9 +791,6 @@ export type CreateFragmentResponse = CreateFragmentResponses[keyof CreateFragmen
 export type GetFragmentData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -746,9 +808,9 @@ export type GetFragmentError = GetFragmentErrors[keyof GetFragmentErrors];
 
 export type GetFragmentResponses = {
     /**
-     * Fragment with content
+     * Fragment with content and backlinks
      */
-    200: FragmentWithContentResponseSchema;
+    200: FragmentDetailResponseSchema;
 };
 
 export type GetFragmentResponse = GetFragmentResponses[keyof GetFragmentResponses];
@@ -756,9 +818,6 @@ export type GetFragmentResponse = GetFragmentResponses[keyof GetFragmentResponse
 export type UpdateFragmentData = {
     body: UpdateFragmentBodySchema;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -786,9 +845,6 @@ export type UpdateFragmentResponse = UpdateFragmentResponses[keyof UpdateFragmen
 export type AcceptFragmentData = {
     body: FragmentReviewBodySchema;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -820,9 +876,6 @@ export type AcceptFragmentResponse = AcceptFragmentResponses[keyof AcceptFragmen
 export type RejectFragmentData = {
     body: FragmentReviewBodySchema;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -854,10 +907,7 @@ export type RejectFragmentResponse = RejectFragmentResponses[keyof RejectFragmen
 export type ListWikisData = {
     body?: never;
     path?: never;
-    query?: {
-        limit?: number;
-        offset?: number;
-    };
+    query?: never;
     url: '/wikis';
 };
 
@@ -873,9 +923,6 @@ export type ListWikisResponse = ListWikisResponses[keyof ListWikisResponses];
 export type GetWikiData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -903,9 +950,6 @@ export type GetWikiResponse = GetWikiResponses[keyof GetWikiResponses];
 export type UpdateWikiData = {
     body: UpdateThreadBodySchema;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -933,9 +977,6 @@ export type UpdateWikiResponse = UpdateWikiResponses[keyof UpdateWikiResponses];
 export type GetWikiTimelineData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: {
@@ -966,9 +1007,6 @@ export type GetWikiTimelineResponse = GetWikiTimelineResponses[keyof GetWikiTime
 export type ToggleBouncerModeData = {
     body: BouncerModeBodySchema;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -996,9 +1034,6 @@ export type ToggleBouncerModeResponse = ToggleBouncerModeResponses[keyof ToggleB
 export type ToggleRegenerateData = {
     body: ToggleRegenerateBodySchema;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -1026,9 +1061,6 @@ export type ToggleRegenerateResponse = ToggleRegenerateResponses[keyof ToggleReg
 export type RegenerateWikiData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -1060,9 +1092,6 @@ export type RegenerateWikiResponse = RegenerateWikiResponses[keyof RegenerateWik
 export type PublishWikiData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -1094,9 +1123,6 @@ export type PublishWikiResponse = PublishWikiResponses[keyof PublishWikiResponse
 export type UnpublishWikiData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -1123,9 +1149,7 @@ export type UnpublishWikiResponse = UnpublishWikiResponses[keyof UnpublishWikiRe
 
 export type MergeWikisData = {
     body?: never;
-    path: {
-        targetId: string;
-    };
+    path?: never;
     query?: never;
     url: '/wikis/{targetId}/merge';
 };
@@ -1138,6 +1162,33 @@ export type MergeWikisErrors = {
 };
 
 export type MergeWikisError = MergeWikisErrors[keyof MergeWikisErrors];
+
+export type UpdateWikiProgressData = {
+    body: UpdateProgressBodySchema;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/wikis/{id}/progress';
+};
+
+export type UpdateWikiProgressErrors = {
+    /**
+     * Not found
+     */
+    404: ErrorResponseSchema;
+};
+
+export type UpdateWikiProgressError = UpdateWikiProgressErrors[keyof UpdateWikiProgressErrors];
+
+export type UpdateWikiProgressResponses = {
+    /**
+     * Updated progress
+     */
+    200: UpdateProgressResponseSchema;
+};
+
+export type UpdateWikiProgressResponse = UpdateWikiProgressResponses[keyof UpdateWikiProgressResponses];
 
 export type ListWikiTypesData = {
     body?: never;
@@ -1179,20 +1230,6 @@ export type CreateWikiTypeResponses = {
 };
 
 export type CreateWikiTypeResponse = CreateWikiTypeResponses[keyof CreateWikiTypeResponses];
-
-export type SetupWikiTypesData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/wiki-types/setup';
-};
-
-export type SetupWikiTypesResponses = {
-    /**
-     * Seed result
-     */
-    200: unknown;
-};
 
 export type GetWikiTypeData = {
     body?: never;
@@ -1248,6 +1285,20 @@ export type UpdateWikiTypeResponses = {
 
 export type UpdateWikiTypeResponse = UpdateWikiTypeResponses[keyof UpdateWikiTypeResponses];
 
+export type SetupWikiTypesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/wiki-types/setup';
+};
+
+export type SetupWikiTypesResponses = {
+    /**
+     * Seed result
+     */
+    200: unknown;
+};
+
 export type GetPublishedWikiData = {
     body?: never;
     path: {
@@ -1302,9 +1353,6 @@ export type GetAuditLogResponse = GetAuditLogResponses[keyof GetAuditLogResponse
 export type GetThreadData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -1332,9 +1380,6 @@ export type GetThreadResponse = GetThreadResponses[keyof GetThreadResponses];
 export type UpdateThreadData = {
     body: UpdateThreadBodySchema;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -1362,9 +1407,6 @@ export type UpdateThreadResponse = UpdateThreadResponses[keyof UpdateThreadRespo
 export type RegenerateThreadData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -1391,9 +1433,7 @@ export type RegenerateThreadResponse = RegenerateThreadResponses[keyof Regenerat
 
 export type MergeThreadsData = {
     body?: never;
-    path: {
-        targetId: string;
-    };
+    path?: never;
     query?: never;
     url: '/threads/{targetId}/merge';
 };
@@ -1406,192 +1446,6 @@ export type MergeThreadsErrors = {
 };
 
 export type MergeThreadsError = MergeThreadsErrors[keyof MergeThreadsErrors];
-
-export type ListVaultsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/vaults';
-};
-
-export type ListVaultsResponses = {
-    /**
-     * List of vaults
-     */
-    200: VaultListResponseSchema;
-};
-
-export type ListVaultsResponse = ListVaultsResponses[keyof ListVaultsResponses];
-
-export type CreateVaultData = {
-    body: CreateVaultBodySchema;
-    path?: never;
-    query?: never;
-    url: '/vaults';
-};
-
-export type CreateVaultErrors = {
-    /**
-     * Invalid input
-     */
-    400: ErrorResponseSchema;
-};
-
-export type CreateVaultError = CreateVaultErrors[keyof CreateVaultErrors];
-
-export type CreateVaultResponses = {
-    /**
-     * Created vault
-     */
-    201: VaultResponseSchema;
-};
-
-export type CreateVaultResponse = CreateVaultResponses[keyof CreateVaultResponses];
-
-export type GetVaultData = {
-    body?: never;
-    path: {
-        /**
-         * Resource ID or lookup key
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/vaults/{id}';
-};
-
-export type GetVaultErrors = {
-    /**
-     * Not found
-     */
-    404: ErrorResponseSchema;
-};
-
-export type GetVaultError = GetVaultErrors[keyof GetVaultErrors];
-
-export type GetVaultResponses = {
-    /**
-     * The vault
-     */
-    200: VaultResponseSchema;
-};
-
-export type GetVaultResponse = GetVaultResponses[keyof GetVaultResponses];
-
-export type UpdateVaultData = {
-    body: UpdateVaultBodySchema;
-    path: {
-        /**
-         * Resource ID or lookup key
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/vaults/{id}';
-};
-
-export type UpdateVaultErrors = {
-    /**
-     * Not found
-     */
-    404: ErrorResponseSchema;
-};
-
-export type UpdateVaultError = UpdateVaultErrors[keyof UpdateVaultErrors];
-
-export type UpdateVaultResponses = {
-    /**
-     * Updated vault
-     */
-    200: VaultResponseSchema;
-};
-
-export type UpdateVaultResponse = UpdateVaultResponses[keyof UpdateVaultResponses];
-
-export type UpdateVaultProfileData = {
-    body?: never;
-    path: {
-        /**
-         * Resource ID or lookup key
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/vaults/{id}/profile';
-};
-
-export type UpdateVaultProfileErrors = {
-    /**
-     * Not found
-     */
-    404: ErrorResponseSchema;
-};
-
-export type UpdateVaultProfileError = UpdateVaultProfileErrors[keyof UpdateVaultProfileErrors];
-
-export type UpdateVaultProfileResponses = {
-    /**
-     * Updated vault
-     */
-    200: VaultResponseSchema;
-};
-
-export type UpdateVaultProfileResponse = UpdateVaultProfileResponses[keyof UpdateVaultProfileResponses];
-
-export type ListVaultThreadsData = {
-    body?: never;
-    path: {
-        /**
-         * Vault ID
-         */
-        vaultId: string;
-    };
-    query?: never;
-    url: '/vaults/{vaultId}/threads';
-};
-
-export type ListVaultThreadsResponses = {
-    /**
-     * List of threads
-     */
-    200: ThreadListResponseSchema;
-};
-
-export type ListVaultThreadsResponse = ListVaultThreadsResponses[keyof ListVaultThreadsResponses];
-
-export type CreateVaultThreadData = {
-    body: CreateThreadBodySchema;
-    path: {
-        /**
-         * Vault ID
-         */
-        vaultId: string;
-    };
-    query?: never;
-    url: '/vaults/{vaultId}/threads';
-};
-
-export type CreateVaultThreadErrors = {
-    /**
-     * Invalid input
-     */
-    400: ErrorResponseSchema;
-    /**
-     * Vault not found
-     */
-    404: ErrorResponseSchema;
-};
-
-export type CreateVaultThreadError = CreateVaultThreadErrors[keyof CreateVaultThreadErrors];
-
-export type CreateVaultThreadResponses = {
-    /**
-     * Created thread
-     */
-    201: ThreadResponseSchema;
-};
-
-export type CreateVaultThreadResponse = CreateVaultThreadResponses[keyof CreateVaultThreadResponses];
 
 export type ListPeopleData = {
     body?: never;
@@ -1615,9 +1469,6 @@ export type ListPeopleResponse = ListPeopleResponses[keyof ListPeopleResponses];
 export type GetPersonData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -1645,9 +1496,6 @@ export type GetPersonResponse = GetPersonResponses[keyof GetPersonResponses];
 export type UpdatePersonData = {
     body: UpdatePersonBodySchema;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -1675,9 +1523,6 @@ export type UpdatePersonResponse = UpdatePersonResponses[keyof UpdatePersonRespo
 export type RegeneratePersonData = {
     body?: never;
     path: {
-        /**
-         * Resource ID or lookup key
-         */
         id: string;
     };
     query?: never;
@@ -1708,7 +1553,8 @@ export type SearchData = {
     query: {
         q: string;
         limit?: number;
-        minScore?: number;
+        tables?: (unknown | string) & Array<'fragment' | 'wiki' | 'person'>;
+        mode?: 'hybrid' | 'bm25' | 'vector';
     };
     url: '/search';
 };
@@ -1750,10 +1596,7 @@ export type GetGraphResponse = GetGraphResponses[keyof GetGraphResponses];
 export type GetRelationshipsData = {
     body?: never;
     path: {
-        type: 'entry' | 'fragment' | 'thread' | 'vault' | 'person';
-        /**
-         * Resource ID or lookup key
-         */
+        type: string;
         id: string;
     };
     query?: never;
@@ -1781,7 +1624,7 @@ export type GetRelationshipsResponse = GetRelationshipsResponses[keyof GetRelati
 export type GetContentData = {
     body?: never;
     path: {
-        type: 'fragment' | 'entry' | 'thread' | 'person';
+        type: string;
         key: string;
     };
     query?: never;
@@ -1813,7 +1656,7 @@ export type GetContentResponse = GetContentResponses[keyof GetContentResponses];
 export type UpdateContentData = {
     body?: never;
     path: {
-        type: 'fragment' | 'entry' | 'thread' | 'person';
+        type: string;
         key: string;
     };
     query?: never;
@@ -2028,35 +1871,6 @@ export type RetryStuckFragmentsResponses = {
 };
 
 export type RetryStuckFragmentsResponse = RetryStuckFragmentsResponses[keyof RetryStuckFragmentsResponses];
-
-export type SyncNotifyData = {
-    body: SyncNotifyPayloadSchema;
-    path?: never;
-    query?: never;
-    url: '/internal/sync-notify';
-};
-
-export type SyncNotifyErrors = {
-    /**
-     * Invalid payload
-     */
-    400: ErrorResponseSchema;
-    /**
-     * Invalid HMAC
-     */
-    401: ErrorResponseSchema;
-};
-
-export type SyncNotifyError = SyncNotifyErrors[keyof SyncNotifyErrors];
-
-export type SyncNotifyResponses = {
-    /**
-     * Sync job accepted
-     */
-    202: SyncAcceptedResponseSchema;
-};
-
-export type SyncNotifyResponse = SyncNotifyResponses[keyof SyncNotifyResponses];
 
 export type McpTransportData = {
     body?: never;

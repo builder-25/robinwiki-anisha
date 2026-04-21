@@ -1,90 +1,101 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { T } from "@/lib/typography";
+import { Spinner } from "@/components/ui/spinner";
 import { EntryArticle } from "@/components/wiki/EntryArticle";
 import { WikiSectionH2 } from "@/components/wiki/WikiEntityArticle";
+import { MarkdownContent } from "@/components/wiki/MarkdownContent";
+import { useEntry } from "@/hooks/useEntry";
+import { useEntryFragments } from "@/hooks/useEntryFragments";
 
-type Fragment = {
-  id: string;
-  title: string;
-  href: string;
-};
-
-const ENTRY = {
-  title: "Morning thought — Apr 18",
-  type: "thought",
-  source: "mcp",
-  createdAt: "18 Apr 2026",
-  body: [
-    "Woke early. Coffee on the fire escape. The city sounded soft for a Tuesday — trash trucks, pigeons, a saxophone two blocks over. I tried to hold the feeling of unhurried attention before my phone pulled me back in.",
-    "Mornings are the one window where I can think without negotiation. When I lose the morning to notifications, the whole day runs tactical — answering, not asking. The rule holds: protect the first ninety minutes.",
-    "The harder question is what counts as a real morning. A 7:30 start in silence is different from a 6:00 start already half-scheduled. The ritual matters less than the posture.",
-  ],
-};
-
-const FRAGMENTS: Fragment[] = [
-  { id: "f-1", title: "Protect the first ninety minutes of the day", href: "/wiki/fragments/fragment01SAMPLE" },
-  { id: "f-2", title: "Mornings are the only window for unhurried attention", href: "/wiki/fragments/fragment01SAMPLE" },
-  { id: "f-3", title: "Silence at the start changes the posture of the day", href: "/wiki/fragments/fragment01SAMPLE" },
-  { id: "f-4", title: "Notifications convert thinking into answering", href: "/wiki/fragments/fragment01SAMPLE" },
-  { id: "f-5", title: "A saxophone two blocks over", href: "/wiki/fragments/fragment01SAMPLE" },
-];
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 export default function EntryPage() {
+  const { id } = useParams<{ id: string }>();
+  const { data: entry, isLoading, error } = useEntry(id);
+  const { data: fragmentsData } = useEntryFragments(id);
+  const fragments = fragmentsData?.fragments ?? [];
+
   const bodyStyle = {
     ...T.bodySmall,
     color: "var(--wiki-article-text)",
     lineHeight: 1.6,
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Spinner className="size-6" />
+      </div>
+    );
+  }
+
+  if (error || !entry) {
+    return (
+      <div className="p-6">
+        <h1 style={T.h1}>Entry not found</h1>
+        <p style={{ ...T.bodySmall, color: "var(--wiki-article-text)", marginTop: 8 }}>
+          This entry could not be loaded. It may have been deleted or you may not have access.
+        </p>
+      </div>
+    );
+  }
+
   return (
+    <>
+    <Link href="/wiki" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--wiki-count)", textDecoration: "none", marginBottom: 12 }}>
+      <ArrowLeft size={14} strokeWidth={1.5} />
+      <span style={{ ...T.micro }}>Back</span>
+    </Link>
     <EntryArticle
-      title={ENTRY.title}
+      title={entry.title}
       infobox={{
-        type: ENTRY.type,
-        source: ENTRY.source,
-        createdAt: ENTRY.createdAt,
+        type: entry.type,
+        source: entry.source,
+        createdAt: formatDate(entry.createdAt),
       }}
       body={
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, ...bodyStyle }}>
-          {ENTRY.body.map((p, i) => (
-            <p key={i} style={{ margin: 0 }}>
-              {p}
-            </p>
-          ))}
-        </div>
+        <MarkdownContent content={entry.content} style={bodyStyle} />
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <WikiSectionH2 title="Extracted Fragments" count={FRAGMENTS.length} />
-        <ul
-          style={{
-            ...bodyStyle,
-            listStyle: "decimal",
-            paddingLeft: 20,
-            margin: "12px 0 0 0",
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-          }}
-        >
-          {FRAGMENTS.map((frag) => (
-            <li key={frag.id}>
-              <Link
-                href={frag.href}
-                style={{
-                  color: "var(--wiki-fragment-link)",
-                  textDecoration: "underline",
-                  textDecorationSkipInk: "none",
-                }}
-              >
-                {frag.title}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {fragments.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <WikiSectionH2 title="Extracted Fragments" count={fragments.length} />
+          <ul
+            style={{
+              ...bodyStyle,
+              listStyle: "decimal",
+              paddingLeft: 20,
+              margin: "12px 0 0 0",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            {fragments.map((frag) => (
+              <li key={frag.id}>
+                <Link
+                  href={`/wiki/fragments/${frag.id}`}
+                  style={{
+                    color: "var(--wiki-fragment-link)",
+                    textDecoration: "underline",
+                    textDecorationSkipInk: "none",
+                  }}
+                >
+                  {frag.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </EntryArticle>
+    </>
   );
 }

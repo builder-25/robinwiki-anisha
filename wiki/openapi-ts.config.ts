@@ -1,7 +1,9 @@
 import { defineConfig } from '@hey-api/openapi-ts'
 
+const serverUrl = process.env.ROBIN_SERVER ?? 'http://localhost:3000'
+
 export default defineConfig({
-  input: '../core/openapi.yaml',
+  input: `${serverUrl}/openapi.json`,
   output: {
     path: 'src/lib/generated',
   },
