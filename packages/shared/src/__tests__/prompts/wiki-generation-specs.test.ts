@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { loadWikiGenerationSpec } from '../../prompts/index'
+import {
+  loadWikiGenerationSpec,
+  renderFragmentsBlock,
+  renderPeopleBlock,
+} from '../../prompts/index'
 import { loadSpec } from '../../prompts/loader'
 import type { WikiType } from '../../types/wiki'
 
@@ -83,4 +87,64 @@ describe('wiki-types display metadata', () => {
       })
     })
   }
+})
+
+describe('renderFragmentsBlock', () => {
+  it('emits inline id, slug, and captured date headers for each fragment', () => {
+    const out = renderFragmentsBlock([
+      {
+        id: 'frag-abc123',
+        slug: 'morning-run',
+        title: 'Morning run',
+        content: 'Ran 5k in the park.',
+        createdAt: '2026-04-12T09:30:00.000Z',
+      },
+      {
+        id: 'frag-def456',
+        slug: 'pr-pace',
+        title: 'New PR pace',
+        content: 'Hit 4:40/km on the last km.',
+        createdAt: new Date('2026-04-13T10:00:00.000Z'),
+      },
+    ])
+
+    expect(out).toContain('id: frag-abc123')
+    expect(out).toContain('slug: morning-run')
+    expect(out).toContain('captured: 2026-04-12')
+    expect(out).toContain('id: frag-def456')
+    expect(out).toContain('slug: pr-pace')
+    expect(out).toContain('captured: 2026-04-13')
+  })
+
+  it('omits captured when createdAt is absent', () => {
+    const out = renderFragmentsBlock([
+      { id: 'frag-x', slug: 'x', content: 'no date' },
+    ])
+    expect(out).toContain('id: frag-x')
+    expect(out).toContain('slug: x')
+    expect(out).not.toContain('captured:')
+  })
+})
+
+describe('renderPeopleBlock', () => {
+  it('emits inline slug, name, and relationship for each person', () => {
+    const out = renderPeopleBlock([
+      { slug: 'sarah-chen', name: 'Sarah Chen', relationship: 'coworker' },
+      { slug: 'alex-morgan', name: 'Alex Morgan' },
+    ])
+
+    expect(out).toContain('slug: sarah-chen')
+    expect(out).toContain('name: Sarah Chen')
+    expect(out).toContain('relationship: coworker')
+    expect(out).toContain('slug: alex-morgan')
+    expect(out).toContain('name: Alex Morgan')
+  })
+
+  it('omits relationship when empty or whitespace', () => {
+    const out = renderPeopleBlock([
+      { slug: 'noel', name: 'Noel', relationship: '' },
+      { slug: 'kai', name: 'Kai', relationship: '   ' },
+    ])
+    expect(out).not.toContain('relationship:')
+  })
 })

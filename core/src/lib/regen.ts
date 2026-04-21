@@ -8,6 +8,7 @@ import {
 } from '@robin/agent'
 import {
   loadWikiGenerationSpec,
+  renderFragmentsBlock,
   wikiClassificationSchema,
   type WikiGenerationOverride,
   type WikiType,
@@ -315,7 +316,13 @@ export async function regenerateWiki(
 
   if (fragmentKeys.length > 0) {
     const fragRows = await database
-      .select({ lookupKey: fragments.lookupKey, title: fragments.title, content: fragments.content })
+      .select({
+        lookupKey: fragments.lookupKey,
+        slug: fragments.slug,
+        title: fragments.title,
+        content: fragments.content,
+        createdAt: fragments.createdAt,
+      })
       .from(fragments)
       .where(and(inArray(fragments.lookupKey, fragmentKeys), isNull(fragments.deletedAt)))
 
@@ -331,8 +338,27 @@ export async function regenerateWiki(
 
     fragmentCount = fragRows.length
 
-    const strongText = strongFrags.map((f) => `### ${f.title}\n${f.content}`).join('\n\n')
-    const weakText = weakFrags.map((f) => `### ${f.title}\n${f.content}`).join('\n\n')
+    // Render each fragment with inline id/slug/captured header so the LLM
+    // can emit grounded [[fragment:<slug>]] tokens and per-section
+    // citationDeclarations whose fragmentIds reference real lookupKeys.
+    const strongText = renderFragmentsBlock(
+      strongFrags.map((f) => ({
+        id: f.lookupKey,
+        slug: f.slug,
+        title: f.title,
+        content: f.content,
+        createdAt: f.createdAt,
+      })),
+    )
+    const weakText = renderFragmentsBlock(
+      weakFrags.map((f) => ({
+        id: f.lookupKey,
+        slug: f.slug,
+        title: f.title,
+        content: f.content,
+        createdAt: f.createdAt,
+      })),
+    )
 
     if (weakFrags.length > 0 && strongFrags.length > 0) {
       fragmentsText = `${strongText}\n\n---\n[SUPPLEMENTARY FRAGMENTS — lower confidence, include as supporting context or "See also" references]\n\n${weakText}`
