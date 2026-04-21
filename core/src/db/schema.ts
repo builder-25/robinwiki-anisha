@@ -13,6 +13,7 @@ import {
   customType,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
+import type { WikiMetadata } from '@robin/shared/schemas/sidecar'
 import { nanoid } from '../lib/id.js'
 
 // tsvector custom column — managed by raw SQL triggers in the migration.
@@ -233,6 +234,9 @@ export const wikis = pgTable(
       milestones: { label: string; completed: boolean }[]
       percentage: number
     } | null>(),
+    // Sidecar metadata (m-wiki-sidecar). Currently bundles the infobox;
+    // reserved for additional structured sidecar fields over time.
+    metadata: jsonb('metadata').$type<WikiMetadata>(),
   },
   (t) => [
     uniqueIndex('wikis_slug_uidx').on(t.slug),
