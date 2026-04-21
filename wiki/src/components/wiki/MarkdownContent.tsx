@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import type { CSSProperties } from "react";
 import { T } from "@/lib/typography";
+import type { WikiRef } from "@/lib/sidecarTypes";
 
 const baseText: CSSProperties = {
   ...T.bodySmall,
@@ -188,9 +189,20 @@ interface MarkdownContentProps {
   content: string;
   className?: string;
   style?: CSSProperties;
+  /**
+   * Map of `${kind}:${slug}` → WikiRef used to resolve `[[kind:slug]]` tokens
+   * into `<WikiChip>` elements. Accepted but not yet rendered — token
+   * substitution is owned by the `markdown-token-rendering` phase (Wave 2).
+   */
+  refs?: Record<string, WikiRef>;
 }
 
-export function MarkdownContent({ content, className, style }: MarkdownContentProps) {
+export function MarkdownContent({
+  content,
+  className,
+  style,
+  refs: _refs,
+}: MarkdownContentProps) {
   return (
     <div className={className} style={style}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
