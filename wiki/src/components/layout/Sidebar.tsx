@@ -60,7 +60,7 @@ const navigationData: SidebarSectionData = {
 };
 
 function useEntriesData(): SidebarSectionData {
-  const { data } = useEntries({ limit: 20 });
+  const { data } = useEntries({ limit: 5 });
   const items = useMemo<NavItem[]>(() => {
     const entries = data?.entries;
     if (!entries || entries.length === 0) return [];
