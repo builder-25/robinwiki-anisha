@@ -221,16 +221,25 @@ wikisRouter.get('/:id', async (c) => {
   const thread = row.wiki
 
   // Member fragments via FRAGMENT_IN_WIKI edges
+  // For review-mode wikis, also include pending edges (deletedAt set) so the UI
+  // can show them for accept/reject. Pending = edge exists with deletedAt set.
+  const isReviewMode = thread.bouncerMode === 'review'
+  const edgeConditions = [
+    eq(edges.dstId, id),
+    eq(edges.edgeType, 'FRAGMENT_IN_WIKI'),
+  ]
+  if (!isReviewMode) edgeConditions.push(isNull(edges.deletedAt))
+
   const fragEdges = await db
-    .select({ srcId: edges.srcId })
+    .select({ srcId: edges.srcId, deletedAt: edges.deletedAt })
     .from(edges)
-    .where(
-      and(
-        eq(edges.dstId, id),
-        eq(edges.edgeType, 'FRAGMENT_IN_WIKI'),
-        isNull(edges.deletedAt)
-      )
-    )
+    .where(and(...edgeConditions))
+
+  // Build a map of fragmentKey → edgeStatus for the response
+  const edgeStatusMap = new Map<string, 'active' | 'pending'>()
+  for (const e of fragEdges) {
+    edgeStatusMap.set(e.srcId, e.deletedAt ? 'pending' : 'active')
+  }
   const fragKeys = fragEdges.map((e) => e.srcId)
 
   const frags =
@@ -290,6 +299,7 @@ wikisRouter.get('/:id', async (c) => {
         slug: f.slug,
         title: f.title,
         snippet: (f.content ?? '').slice(0, 200),
+        edgeStatus: edgeStatusMap.get(f.lookupKey) ?? 'active',
       })),
       people: peopleRows.map((p) => ({
         id: p.lookupKey,

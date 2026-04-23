@@ -41,6 +41,7 @@ export const threadResponseSchema = z.object({
   shortDescriptor: z.string().default(''),
   descriptor: z.string().default(''),
   progress: wikiProgressSchema.nullable().default(null),
+  bouncerMode: z.enum(['auto', 'review']).default('auto'),
 })
 
 export const threadWithWikiResponseSchema = threadResponseSchema.extend({
@@ -55,6 +56,7 @@ export const wikiDetailResponseSchema = threadResponseSchema.extend({
       slug: z.string(),
       title: z.string(),
       snippet: z.string(),
+      edgeStatus: z.enum(['active', 'pending']).default('active'),
     })
   ),
   people: z.array(
