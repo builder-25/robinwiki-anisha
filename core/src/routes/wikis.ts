@@ -207,8 +207,17 @@ wikisRouter.post('/', zValidator('json', createThreadBodySchema, validationHook)
 // GET /wikis/:id — wiki detail with member fragments and aggregated people
 wikisRouter.get('/:id', async (c) => {
   const id = c.req.param('id')
-  const [thread] = await db.select().from(wikis).where(and(eq(wikis.lookupKey, id), isNull(wikis.deletedAt)))
-  if (!thread) return c.json({ error: 'Not found' }, 404)
+  const [row] = await db
+    .select({
+      wiki: wikis,
+      shortDescriptor: wikiTypes.shortDescriptor,
+      descriptor: wikiTypes.descriptor,
+    })
+    .from(wikis)
+    .leftJoin(wikiTypes, eq(wikis.type, wikiTypes.slug))
+    .where(and(eq(wikis.lookupKey, id), isNull(wikis.deletedAt)))
+  if (!row) return c.json({ error: 'Not found' }, 404)
+  const thread = row.wiki
 
   // Member fragments via FRAGMENT_IN_WIKI edges
   const fragEdges = await db
@@ -269,7 +278,11 @@ wikisRouter.get('/:id', async (c) => {
 
   return c.json(
     wikiDetailResponseSchema.parse({
-      ...prepareThread(thread),
+      ...prepareThread({
+        ...thread,
+        shortDescriptor: row.shortDescriptor ?? '',
+        descriptor: row.descriptor ?? '',
+      }),
       wikiContent: thread.content ?? '',
       fragments: frags.map((f) => ({
         id: f.lookupKey,

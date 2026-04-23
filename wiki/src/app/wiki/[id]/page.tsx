@@ -471,6 +471,8 @@ export default function WikiDetailPage() {
       chipIcon={getWikiTypeIcon(typeLabel)}
       chipLabel={typeLabel}
       title={wiki.name}
+      promptOverride={wiki.prompt}
+      description={wiki.shortDescriptor}
       infobox={{ kind: "simple", typeLabel, lastUpdated: wiki.updatedAt, showSettings: true }}
       renderCustomInfobox={
         sidecarInfobox
