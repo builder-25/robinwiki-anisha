@@ -124,6 +124,7 @@ wikisRouter.post('/', zValidator('json', createThreadBodySchema, validationHook)
       lookupKey,
       slug: finalSlug,
       name: body.name.trim(),
+      description: body.description ?? '',
       type: wikiType,
       state: 'PENDING',
       prompt: body.prompt ?? '',
@@ -208,20 +209,38 @@ wikisRouter.post('/', zValidator('json', createThreadBodySchema, validationHook)
 // GET /wikis/:id — wiki detail with member fragments and aggregated people
 wikisRouter.get('/:id', async (c) => {
   const id = c.req.param('id')
-  const [thread] = await db.select().from(wikis).where(and(eq(wikis.lookupKey, id), isNull(wikis.deletedAt)))
-  if (!thread) return c.json({ error: 'Not found' }, 404)
+  const [row] = await db
+    .select({
+      wiki: wikis,
+      shortDescriptor: wikiTypes.shortDescriptor,
+      descriptor: wikiTypes.descriptor,
+    })
+    .from(wikis)
+    .leftJoin(wikiTypes, eq(wikis.type, wikiTypes.slug))
+    .where(and(eq(wikis.lookupKey, id), isNull(wikis.deletedAt)))
+  if (!row) return c.json({ error: 'Not found' }, 404)
+  const thread = row.wiki
 
   // Member fragments via FRAGMENT_IN_WIKI edges
+  // For review-mode wikis, also include pending edges (deletedAt set) so the UI
+  // can show them for accept/reject. Pending = edge exists with deletedAt set.
+  const isReviewMode = thread.bouncerMode === 'review'
+  const edgeConditions = [
+    eq(edges.dstId, id),
+    eq(edges.edgeType, 'FRAGMENT_IN_WIKI'),
+  ]
+  if (!isReviewMode) edgeConditions.push(isNull(edges.deletedAt))
+
   const fragEdges = await db
-    .select({ srcId: edges.srcId })
+    .select({ srcId: edges.srcId, deletedAt: edges.deletedAt })
     .from(edges)
-    .where(
-      and(
-        eq(edges.dstId, id),
-        eq(edges.edgeType, 'FRAGMENT_IN_WIKI'),
-        isNull(edges.deletedAt)
-      )
-    )
+    .where(and(...edgeConditions))
+
+  // Build a map of fragmentKey → edgeStatus for the response
+  const edgeStatusMap = new Map<string, 'active' | 'pending'>()
+  for (const e of fragEdges) {
+    edgeStatusMap.set(e.srcId, e.deletedAt ? 'pending' : 'active')
+  }
   const fragKeys = fragEdges.map((e) => e.srcId)
 
   const frags =
@@ -289,13 +308,18 @@ wikisRouter.get('/:id', async (c) => {
 
   return c.json(
     wikiDetailResponseSchema.parse({
-      ...prepareThread(thread),
+      ...prepareThread({
+        ...thread,
+        shortDescriptor: row.shortDescriptor ?? '',
+        descriptor: row.descriptor ?? '',
+      }),
       wikiContent: thread.content ?? '',
       fragments: frags.map((f) => ({
         id: f.lookupKey,
         slug: f.slug,
         title: f.title,
         snippet: (f.content ?? '').slice(0, 200),
+        edgeStatus: edgeStatusMap.get(f.lookupKey) ?? 'active',
       })),
       people: peopleRows.map((p) => ({
         id: p.lookupKey,
@@ -408,7 +432,12 @@ wikisRouter.put('/:id', zValidator('json', updateThreadBodySchema, validationHoo
       ? candidateSlug
       : await resolveWikiSlug(db, candidateSlug)
   }
-  if (body.type != null) updates.type = body.type
+  if (body.description != null) updates.description = body.description
+  if (body.type != null) {
+    updates.type = body.type
+    // Type change affects wiki generation — mark PENDING so regen rebuilds with new type's prompt
+    if (body.type !== existing.type) updates.state = 'PENDING'
+  }
   if (body.prompt != null) {
     updates.prompt = body.prompt
     // Prompt change affects wiki generation — mark PENDING so regen rebuilds with new prompt
@@ -421,13 +450,17 @@ wikisRouter.put('/:id', zValidator('json', updateThreadBodySchema, validationHoo
     .where(eq(wikis.lookupKey, id))
     .returning()
 
+  const typeTransition = body.type != null && body.type !== existing.type
+    ? { from: existing.type, to: body.type }
+    : undefined
+
   await emitAuditEvent(db, {
     entityType: 'wiki',
     entityId: id,
     eventType: 'edited',
     source: 'api',
     summary: `Wiki edited: ${thread.name}`,
-    detail: { wikiKey: id, changedFields: Object.keys(updates).filter(k => k !== 'updatedAt') },
+    detail: { wikiKey: id, changedFields: Object.keys(updates).filter(k => k !== 'updatedAt'), typeTransition },
   })
 
   return c.json(threadResponseSchema.parse(prepareThread(thread)))
@@ -504,6 +537,10 @@ wikisRouter.post('/:id/regenerate', async (c) => {
   try {
     const result = await regenerateWiki(db, id)
     log.info({ wikiKey: id, ...result }, 'wiki regenerated via on-demand endpoint')
+    if (result.timing) {
+      const t = result.timing
+      c.header('Server-Timing', `classify;dur=${t.classify}, gather;dur=${t.gatherFragments}, llm;dur=${t.llmCall}, embed;dur=${t.embed}, total;dur=${t.total}`)
+    }
     return c.json({ ok: true, lookupKey: id, fragmentCount: result.fragmentCount })
   } catch (err) {
     if (err instanceof NoOpenRouterKeyError) {
