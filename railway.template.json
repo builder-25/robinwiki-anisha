@@ -32,7 +32,7 @@
     {
       "name": "core",
       "source": {
-        "repo": "builder-25/robinwiki-1",
+        "repo": "builder-25/robinwiki-anisha",
         "branch": "main",
         "rootDirectory": "/"
       },
@@ -58,7 +58,7 @@
     {
       "name": "wiki",
       "source": {
-        "repo": "builder-25/robinwiki-1",
+        "repo": "builder-25/robinwiki-anisha",
         "branch": "main",
         "rootDirectory": "/"
       },
