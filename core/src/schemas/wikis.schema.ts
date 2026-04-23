@@ -29,6 +29,7 @@ export const threadResponseSchema = z.object({
   lookupKey: lookupKeySchema,
   slug: z.string(),
   name: z.string(),
+  description: z.string().default(''),
   type: z.string(),
   prompt: z.string(),
   state: objectStateSchema,
@@ -87,6 +88,7 @@ export const createThreadBodySchema = z.object({
 
 export const updateThreadBodySchema = z.object({
   name: z.string().optional(),
+  description: z.string().optional(),
   type: z.string().optional(),
   prompt: z.string().optional(),
 })

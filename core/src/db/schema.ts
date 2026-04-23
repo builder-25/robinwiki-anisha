@@ -220,6 +220,7 @@ export const wikis = pgTable(
   {
     ...baseColumns(),
     name: text('name').notNull(),
+    description: text('description').notNull().default(''),
     type: text('type').notNull().default('log'),
     prompt: text('prompt').notNull().default(''),
     lastRebuiltAt: timestamp('last_rebuilt_at'),

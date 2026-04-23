@@ -123,6 +123,7 @@ wikisRouter.post('/', zValidator('json', createThreadBodySchema, validationHook)
       lookupKey,
       slug: finalSlug,
       name: body.name.trim(),
+      description: body.description ?? '',
       type: wikiType,
       state: 'PENDING',
       prompt: body.prompt ?? '',
@@ -401,7 +402,12 @@ wikisRouter.put('/:id', zValidator('json', updateThreadBodySchema, validationHoo
       ? candidateSlug
       : await resolveWikiSlug(db, candidateSlug)
   }
-  if (body.type != null) updates.type = body.type
+  if (body.description != null) updates.description = body.description
+  if (body.type != null) {
+    updates.type = body.type
+    // Type change affects wiki generation — mark PENDING so regen rebuilds with new type's prompt
+    if (body.type !== existing.type) updates.state = 'PENDING'
+  }
   if (body.prompt != null) {
     updates.prompt = body.prompt
     // Prompt change affects wiki generation — mark PENDING so regen rebuilds with new prompt
@@ -414,13 +420,17 @@ wikisRouter.put('/:id', zValidator('json', updateThreadBodySchema, validationHoo
     .where(eq(wikis.lookupKey, id))
     .returning()
 
+  const typeTransition = body.type != null && body.type !== existing.type
+    ? { from: existing.type, to: body.type }
+    : undefined
+
   await emitAuditEvent(db, {
     entityType: 'wiki',
     entityId: id,
     eventType: 'edited',
     source: 'api',
     summary: `Wiki edited: ${thread.name}`,
-    detail: { wikiKey: id, changedFields: Object.keys(updates).filter(k => k !== 'updatedAt') },
+    detail: { wikiKey: id, changedFields: Object.keys(updates).filter(k => k !== 'updatedAt'), typeTransition },
   })
 
   return c.json(threadResponseSchema.parse(prepareThread(thread)))
