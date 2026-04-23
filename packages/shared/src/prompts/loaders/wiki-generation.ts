@@ -13,6 +13,7 @@ import { skillWikiSchema } from '../specs/wiki-types/skill.schema.js'
 import { agentWikiSchema } from '../specs/wiki-types/agent.schema.js'
 import { voiceWikiSchema } from '../specs/wiki-types/voice.schema.js'
 import { principlesWikiSchema } from '../specs/wiki-types/principles.schema.js'
+import { patientChartWikiSchema } from '../specs/wiki-types/patient-chart.schema.js'
 
 /**
  * Shape a fragment row into the [FRAGMENTS] inline-slug format consumed by
@@ -109,6 +110,7 @@ const schemaMap: Record<WikiType, z.ZodType> = {
   agent: agentWikiSchema,
   voice: voiceWikiSchema,
   principles: principlesWikiSchema,
+  'patient-chart': patientChartWikiSchema,
 }
 
 /**

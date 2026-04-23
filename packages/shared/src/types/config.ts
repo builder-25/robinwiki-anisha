@@ -17,6 +17,7 @@ export type WikiGuideKey =
   | 'wiki-guide-agent'
   | 'wiki-guide-voice'
   | 'wiki-guide-principles'
+  | 'wiki-guide-patient-chart'
 
 export const WIKI_TYPE_TO_GUIDE_KEY: Record<WikiType, WikiGuideKey> = {
   log: 'wiki-guide-log',
@@ -29,4 +30,5 @@ export const WIKI_TYPE_TO_GUIDE_KEY: Record<WikiType, WikiGuideKey> = {
   agent: 'wiki-guide-agent',
   voice: 'wiki-guide-voice',
   principles: 'wiki-guide-principles',
+  'patient-chart': 'wiki-guide-patient-chart',
 }

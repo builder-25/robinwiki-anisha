@@ -16,6 +16,7 @@ const WIKI_TYPE_DESCRIPTORS: Record<WikiType, string> = {
   agent:      'documentation for a configured AI assistant',
   voice:      'a style guide for communication',
   principles: 'a document of operating rules and commitments',
+  'patient-chart': 'a longitudinal clinical record of a patient',
 }
 
 /**
