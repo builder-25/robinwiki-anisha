@@ -21,6 +21,7 @@
 // Inlined copy of WIKI_LINK_RE from @robin/shared/wiki-links.ts.
 // Importing from the @robin/shared barrel pulls prompts/index.js which
 // uses node:fs — Turbopack refuses to bundle that graph for the browser.
+// Kept in sync with @robin/shared/wiki-links.
 const WIKI_LINK_RE = /\[\[(?:([a-z]+):)?([a-z0-9-]+)\]\]/g
 
 /**

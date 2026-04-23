@@ -17,6 +17,8 @@
  *   - Text inside an existing `<a>` element is skipped so we never
  *     nest anchors (would produce invalid HTML and break the `wchip`
  *     style's hover states).
+ *   - Text inside `<code>` or `<pre>` is skipped so tokens appearing
+ *     in code samples render as literal source rather than as chips.
  *   - Per product decision Q1, unresolved tokens are left as-is
  *     (rendered as their literal `[[kind:slug]]` text) rather than
  *     dropped or styled as broken links.
@@ -37,6 +39,7 @@ import { useEffect, type RefObject } from 'react'
 import type { WikiRef } from '@/lib/sidecarTypes'
 // Inlined from @robin/shared/wiki-links.ts — avoids poisoning the client
 // bundle with prompts/index.js (which uses node:fs).
+// Kept in sync with @robin/shared/wiki-links.
 const WIKI_LINK_RE = /\[\[(?:([a-z]+):)?([a-z0-9-]+)\]\]/g
 
 /** Map from `${kind}:${slug}` (or unqualified `${slug}`) to a `WikiRef`. */
@@ -126,8 +129,9 @@ export function substituteTokensInHtml(
       const parent = node.parentElement
       if (!parent) return NodeFilter.FILTER_REJECT
       // Skip text inside existing anchors — chips and any pre-existing
-      // links must not be rewrapped.
-      if (parent.closest('a')) return NodeFilter.FILTER_REJECT
+      // links must not be rewrapped. Also skip code/pre so token text
+      // inside code samples renders as literal source.
+      if (parent.closest('a, code, pre')) return NodeFilter.FILTER_REJECT
       const value = node.nodeValue
       if (!value || value.indexOf('[[') === -1) return NodeFilter.FILTER_REJECT
       return NodeFilter.FILTER_ACCEPT
