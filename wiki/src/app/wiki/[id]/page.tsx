@@ -255,6 +255,21 @@ function SectionedMarkdownBody({
     const matched = citationsByAnchor.get(section.anchor);
     const citations = matched?.citations ?? [];
 
+    // H1 spans the whole document (no following H1 to bound it), so its
+    // endLine engulfs every H2+ that follows. Rendering the full H1 span
+    // here would double-render everything, since H2+ are then rendered
+    // again as their own blocks. Render only the H1 heading line.
+    if (section.level === 1) {
+      const headingOnly = lines[section.startLine];
+      blocks.push(
+        <div key={section.anchor} id={section.anchor}>
+          <MarkdownContent content={headingOnly} refs={refs} style={style} />
+          {citations.length > 0 && <WikiCitations citations={citations} />}
+        </div>,
+      );
+      continue;
+    }
+
     // H1 never gets the [edit] affordance — it's the document-level
     // heading and section-editing it is equivalent to full-body edit.
     // Levels outside 2–4 fall through to plain MarkdownContent so the
