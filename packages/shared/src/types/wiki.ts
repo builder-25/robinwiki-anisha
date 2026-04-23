@@ -9,6 +9,7 @@ export type WikiType =
   | 'agent'
   | 'voice'
   | 'principles'
+  | 'patient-chart'
 
 export interface DefaultWiki {
   name: string
