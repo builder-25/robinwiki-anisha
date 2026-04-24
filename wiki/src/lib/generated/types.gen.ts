@@ -257,6 +257,8 @@ export type ThreadResponseSchema = {
         }>;
         percentage: number;
     };
+    published?: boolean;
+    publishedSlug?: string;
 };
 
 export type ThreadWithWikiResponseSchema = {
@@ -332,6 +334,8 @@ export type WikiDetailResponseSchema = {
         }>;
         percentage: number;
     };
+    published?: boolean;
+    publishedSlug?: string;
     wikiContent: string;
     fragments: Array<{
         id: string;

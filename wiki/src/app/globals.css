@@ -1411,3 +1411,38 @@ a.ext::after {
   --sidebar-border: oklch(0.3 0 0);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+/* ── Published (public) wiki page ─────────────────────────────────── */
+
+.published-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.published-header {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--wiki-card-border);
+}
+
+.published-article {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+  flex: 1;
+}
+
+.published-footer {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px 24px;
+  border-top: 1px solid var(--wiki-card-border);
+  text-align: center;
+}
