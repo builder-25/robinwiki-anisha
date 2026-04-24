@@ -25,7 +25,10 @@ import { aiModelsRoutes } from './routes/ai-models.js'
 import { publishedRoutes } from './routes/published.js'
 import { systemRoutes } from './routes/system.js'
 import { startWorkers } from './queue/worker.js'
-import { setupRegenScheduler } from './queue/scheduler.js'
+import {
+  setupRegenScheduler,
+  setupEmbeddingRetryScheduler,
+} from './queue/scheduler.js'
 import { producer } from './queue/producer.js'
 import { QUEUE_NAMES } from '@robin/queue'
 import { bullBoardApp } from './routes/bull-board.js'
@@ -207,6 +210,13 @@ if (embedProbe.status === 'unreachable') {
 const schedulerQueue = producer.getQueue(QUEUE_NAMES.scheduler)
 await setupRegenScheduler(schedulerQueue).catch((err) => {
   logger.warn({ err }, 'regen scheduler setup failed — batch regen disabled')
+})
+
+// Embedding retry — fragments with embedding=NULL get opportunistically
+// healed on a 15-min cadence. Shares the scheduler queue; the scheduler
+// worker dispatches by job.type.
+await setupEmbeddingRetryScheduler(schedulerQueue).catch((err) => {
+  logger.warn({ err }, 'embedding retry scheduler setup failed — retries disabled')
 })
 
 const port = Number.parseInt(process.env.PORT ?? '3000', 10)
