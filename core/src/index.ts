@@ -97,6 +97,7 @@ app.onError((err, c) => {
 })
 
 const openapiSpec = JSON.parse(readFileSync(new URL('../openapi.json', import.meta.url), 'utf-8'))
+const faviconBuf = readFileSync(new URL('../assets/favicon.ico', import.meta.url))
 
 /***********************************************************************
  * ## Pre-auth routes
@@ -105,6 +106,15 @@ const openapiSpec = JSON.parse(readFileSync(new URL('../openapi.json', import.me
 
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 app.get('/openapi.json', (c) => c.json(openapiSpec))
+// Favicon — MCP clients (and browsers hitting the core URL directly)
+// fall back to an ugly placeholder when this 404s. Adopted from
+// os.withrobin.org's canonical brand asset.
+app.get('/favicon.ico', (c) =>
+  c.body(faviconBuf, 200, {
+    'Content-Type': 'image/x-icon',
+    'Cache-Control': 'public, max-age=86400',
+  })
+)
 // M2 dormant: git-sync webhook. See import comment above.
 // app.route('/internal', internalRoutes)
 app.route('/admin', adminRoutes)
