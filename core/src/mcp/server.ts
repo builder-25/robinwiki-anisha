@@ -20,7 +20,7 @@
 import { z } from 'zod/v4'
 import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { listWikis, getWiki, getFragment, findPersonById, findPersonByQuery, listWikiTypes, briefPerson, resolveThreadBySlug } from './resolvers.js'
+import { listWikis, getWiki, getFragment, findPersonById, findPersonByQuery, listWikiTypes, briefPerson, resolveWikiBySlug } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
 import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki, handleDeleteWiki, handleDeletePerson } from './handlers.js'
 import type { McpServerDeps } from './handlers.js'
@@ -634,7 +634,7 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
     async ({ wikiSlug, limit }) => {
       try {
         const resolverDeps: McpResolverDeps = { db: deps.db }
-        const resolved = await resolveThreadBySlug(resolverDeps, wikiSlug)
+        const resolved = await resolveWikiBySlug(resolverDeps, wikiSlug)
         if ('error' in resolved) {
           return {
             content: [{ type: 'text' as const, text: JSON.stringify(resolved) }],
