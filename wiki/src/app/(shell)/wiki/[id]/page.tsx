@@ -119,7 +119,10 @@ function HtmlWikiBody({
 export default function WikiDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { data: wiki, isLoading, error } = useWiki(id);
+  const { data: _wiki, isLoading, error } = useWiki(id);
+  // Extend generated type with fields added in #128 (bouncerMode, edgeStatus)
+  // until the OpenAPI codegen picks them up from the live spec
+  const wiki = _wiki as typeof _wiki & { bouncerMode?: string; fragments?: Array<{ id: string; slug: string; title: string; snippet: string; edgeStatus?: string }> } | undefined;
   const regenerate = useRegenerateWiki();
   const deleteWiki = useDeleteWiki();
   const acceptFragment = useAcceptFragment();
@@ -510,7 +513,7 @@ export default function WikiDetailPage() {
                 >
                   {frag.title}
                 </Link>
-                {wiki.bouncerMode === "review" && frag.edgeStatus === "pending" && (
+                {wiki.bouncerMode === "review" && (frag as typeof frag & { edgeStatus?: string }).edgeStatus === "pending" && (
                   <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
                     <button
                       type="button"

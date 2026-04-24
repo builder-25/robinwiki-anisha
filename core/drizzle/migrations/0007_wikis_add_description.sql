@@ -7,4 +7,4 @@
 --
 -- Default '' matches the schema declaration (.notNull().default('')).
 -- Existing live wikis are unaffected — there are none on any fresh DB.
-ALTER TABLE "wikis" ADD COLUMN "description" text NOT NULL DEFAULT '';
+ALTER TABLE "wikis" ADD COLUMN IF NOT EXISTS "description" text NOT NULL DEFAULT '';
