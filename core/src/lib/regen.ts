@@ -156,6 +156,8 @@ export async function createRelatedToEdges(
       .onConflictDoNothing()
     created++
 
+    // Emit audit events for both fragments so the timeline endpoint
+    // surfaces relationship detection from either side (Issue #165)
     await emitAuditEvent(database, {
       entityType: 'fragment',
       entityId: fragmentKey,
@@ -163,6 +165,14 @@ export async function createRelatedToEdges(
       source: 'system',
       summary: `Related fragment detected: ${neighbor.lookupKey} (${Math.round(similarity * 100)}%)`,
       detail: { fragmentKey, relatedKey: neighbor.lookupKey, similarity, wikiKey, method: 'cosine-regen' },
+    })
+    await emitAuditEvent(database, {
+      entityType: 'fragment',
+      entityId: neighbor.lookupKey,
+      eventType: 'related_detected',
+      source: 'system',
+      summary: `Related fragment detected: ${fragmentKey} (${Math.round(similarity * 100)}%)`,
+      detail: { fragmentKey: neighbor.lookupKey, relatedKey: fragmentKey, similarity, wikiKey, method: 'cosine-regen' },
     })
   }
 
