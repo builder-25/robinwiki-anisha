@@ -21,7 +21,7 @@ import type { FragmentWithContentResponseSchema } from "@/lib/generated/types.ge
 
 type FragmentData = Omit<FragmentWithContentResponseSchema, "entryId"> & {
   entryId: string | null;
-  backlinks?: Array<{ id: string; name: string; type: string }>;
+  backlinks?: Array<{ id: string; name: string; type: string; bouncerMode?: string }>;
 };
 
 function formatDate(iso: string) {
@@ -228,14 +228,16 @@ function FragmentBottomSections({ fragment }: { fragment: FragmentData }) {
   );
 }
 
-function FragmentReviewActions({ fragmentId, backlinks }: { fragmentId: string; backlinks: Array<{ id: string; name: string; type: string }> }) {
+function FragmentReviewActions({ fragmentId, backlinks }: { fragmentId: string; backlinks: Array<{ id: string; name: string; type: string; bouncerMode?: string }> }) {
   const router = useRouter();
   const accept = useAcceptFragment();
   const reject = useRejectFragment();
 
-  if (backlinks.length === 0) return null;
+  // Only show accept/reject for wikis in review mode
+  const reviewBacklinks = backlinks.filter((bl) => bl.type === 'wiki' && bl.bouncerMode === 'review');
+  if (reviewBacklinks.length === 0) return null;
 
-  const wikiId = backlinks[0].id;
+  const wikiId = reviewBacklinks[0].id;
   const isPending = accept.isPending || reject.isPending;
 
   const btnBase: CSSProperties = {

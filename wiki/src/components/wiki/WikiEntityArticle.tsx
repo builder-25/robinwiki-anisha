@@ -327,6 +327,8 @@ export type WikiEntityArticleProps = {
   promptOverride?: string;
   /** Wiki description / shortDescriptor to prefill in settings modal */
   description?: string;
+  /** Current bouncer mode for settings modal prefill */
+  bouncerMode?: 'auto' | 'review';
   /** Real wiki id for settings-mode PUT. Prototype pages omit → 'preview' sentinel. */
   wikiId?: string;
   /** Called after local save completes — persist to backend here. */
@@ -374,6 +376,7 @@ export function WikiEntityArticle({
   promptOverride,
   description,
   wikiId,
+  bouncerMode,
   onSave,
   children,
 }: WikiEntityArticleProps) {
@@ -427,8 +430,8 @@ export function WikiEntityArticle({
   const showSettings = infobox.showSettings === true;
 
   const wikiSettingsPrefill = useMemo(
-    () => wikiEntitySettingsPrefill({ title: displayTitle, chipLabel: displayChipLabel, description, promptOverride }),
-    [displayTitle, displayChipLabel, description, promptOverride],
+    () => ({ ...wikiEntitySettingsPrefill({ title: displayTitle, chipLabel: displayChipLabel, description, promptOverride }), bouncerMode }),
+    [displayTitle, displayChipLabel, description, promptOverride, bouncerMode],
   );
 
   const tabs = ["Read", "Edit", "View history"] as const;
