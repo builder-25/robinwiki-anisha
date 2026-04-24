@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generatedAt": "2026-04-24T04:41:13.027Z",
+    "generatedAt": "2026-04-24T13:38:45.509Z",
     "description": "Route + JSON Schema manifest for OpenAPI generation. Feed to /apidoc.",
     "schemaCount": 59,
     "routeCount": 55
@@ -354,7 +354,7 @@
       "responses": {
         "200": {
           "description": "List of wikis",
-          "schemaName": "threadListResponseSchema"
+          "schemaName": "wikiListResponseSchema"
         }
       }
     },
@@ -397,13 +397,13 @@
           "id": "lookupKey"
         },
         "body": {
-          "schemaName": "updateThreadBodySchema"
+          "schemaName": "updateWikiBodySchema"
         }
       },
       "responses": {
         "200": {
           "description": "Updated wiki",
-          "schemaName": "threadResponseSchema"
+          "schemaName": "wikiResponseSchema"
         },
         "404": {
           "description": "Not found",
@@ -794,7 +794,7 @@
       "responses": {
         "200": {
           "description": "Thread with wiki content",
-          "schemaName": "threadWithWikiResponseSchema"
+          "schemaName": "wikiWithContentResponseSchema"
         },
         "404": {
           "description": "Not found",
@@ -816,13 +816,13 @@
           "id": "lookupKey"
         },
         "body": {
-          "schemaName": "updateThreadBodySchema"
+          "schemaName": "updateWikiBodySchema"
         }
       },
       "responses": {
         "200": {
           "description": "Updated thread",
-          "schemaName": "threadResponseSchema"
+          "schemaName": "wikiResponseSchema"
         },
         "404": {
           "description": "Not found",
@@ -2044,10 +2044,10 @@
         }
       }
     },
-    "createThreadBodySchema": {
-      "$ref": "#/definitions/createThreadBodySchema",
+    "createWikiBodySchema": {
+      "$ref": "#/definitions/createWikiBodySchema",
       "definitions": {
-        "createThreadBodySchema": {
+        "createWikiBodySchema": {
           "type": "object",
           "properties": {
             "name": {
@@ -2071,10 +2071,10 @@
         }
       }
     },
-    "updateThreadBodySchema": {
-      "$ref": "#/definitions/updateThreadBodySchema",
+    "updateWikiBodySchema": {
+      "$ref": "#/definitions/updateWikiBodySchema",
       "definitions": {
-        "updateThreadBodySchema": {
+        "updateWikiBodySchema": {
           "type": "object",
           "properties": {
             "name": {
@@ -2094,10 +2094,10 @@
         }
       }
     },
-    "threadResponseSchema": {
-      "$ref": "#/definitions/threadResponseSchema",
+    "wikiResponseSchema": {
+      "$ref": "#/definitions/wikiResponseSchema",
       "definitions": {
-        "threadResponseSchema": {
+        "wikiResponseSchema": {
           "type": "object",
           "properties": {
             "id": {
@@ -2105,7 +2105,7 @@
               "minLength": 1
             },
             "lookupKey": {
-              "$ref": "#/definitions/threadResponseSchema/properties/id"
+              "$ref": "#/definitions/wikiResponseSchema/properties/id"
             },
             "slug": {
               "type": "string"
@@ -2225,10 +2225,10 @@
         }
       }
     },
-    "threadWithWikiResponseSchema": {
-      "$ref": "#/definitions/threadWithWikiResponseSchema",
+    "wikiWithContentResponseSchema": {
+      "$ref": "#/definitions/wikiWithContentResponseSchema",
       "definitions": {
-        "threadWithWikiResponseSchema": {
+        "wikiWithContentResponseSchema": {
           "type": "object",
           "properties": {
             "id": {
@@ -2236,7 +2236,7 @@
               "minLength": 1
             },
             "lookupKey": {
-              "$ref": "#/definitions/threadWithWikiResponseSchema/properties/id"
+              "$ref": "#/definitions/wikiWithContentResponseSchema/properties/id"
             },
             "slug": {
               "type": "string"
@@ -2360,10 +2360,10 @@
         }
       }
     },
-    "threadListResponseSchema": {
-      "$ref": "#/definitions/threadListResponseSchema",
+    "wikiListResponseSchema": {
+      "$ref": "#/definitions/wikiListResponseSchema",
       "definitions": {
-        "threadListResponseSchema": {
+        "wikiListResponseSchema": {
           "type": "object",
           "properties": {
             "wikis": {
@@ -2376,7 +2376,7 @@
                     "minLength": 1
                   },
                   "lookupKey": {
-                    "$ref": "#/definitions/threadListResponseSchema/properties/wikis/items/properties/id"
+                    "$ref": "#/definitions/wikiListResponseSchema/properties/wikis/items/properties/id"
                   },
                   "slug": {
                     "type": "string"

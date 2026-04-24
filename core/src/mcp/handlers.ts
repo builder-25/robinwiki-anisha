@@ -18,10 +18,10 @@
  *
  * **Fail-open semantics:**
  * - Entity extraction errors → fragment persisted without people edges.
- * - Thread marked DIRTY after insert → wiki regen picks it up next cycle.
+ * - Wiki marked DIRTY after insert → wiki regen picks it up next cycle.
  *
  * @see {@link handleLogEntry} — pipeline entry point
- * @see {@link handleLogFragment} — direct-to-thread fast path
+ * @see {@link handleLogFragment} — direct-to-wiki fast path
  * @see {@link McpServerDeps} — dependency injection interface
  */
 
@@ -39,14 +39,14 @@ import type { DB } from '../db/client.js'
 import {
   entries as entriesTable,
   fragments as fragmentsTable,
-  wikis as threadsTable,
+  wikis as wikisTable,
   edges as edgesTable,
   people as peopleTable,
   wikiTypes as wikiTypesTable,
   edits as editsTable,
   groupWikis as groupWikisTable,
 } from '../db/schema.js'
-import { resolveThreadBySlug } from './resolvers.js'
+import { resolveWikiBySlug } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
 import { inferWikiType } from './wiki-type-inference.js'
 import { resolvePerson, DEFAULT_RESOLUTION_CONFIG } from '@robin/agent'
@@ -177,13 +177,13 @@ export async function handleLogEntry(
 /**
  * Handle the `log_fragment` MCP tool call.
  *
- * @summary Persist a fragment directly to a known thread, bypassing
+ * @summary Persist a fragment directly to a known wiki, bypassing
  * the full AI ingestion pipeline.
  *
  * @param deps   - Injected dependencies (db, LLM calls, etc.)
- * @param input  - Fragment content, target thread slug, optional title/tags
+ * @param input  - Fragment content, target wiki slug, optional title/tags
  * @param userId - Authenticated user ID (`undefined` = not authenticated)
- * @returns MCP-shaped response with fragment/thread keys or error
+ * @returns MCP-shaped response with fragment/wiki keys or error
  *
  * @throws Never — all errors caught and returned as `{ isError: true }`
  */
@@ -224,7 +224,7 @@ export async function handleLogFragment(
       db: deps.db,
     }
 
-    const threadResult = await resolveThreadBySlug(resolverDeps, input.threadSlug.trim())
+    const threadResult = await resolveWikiBySlug(resolverDeps, input.threadSlug.trim())
 
     if ('error' in threadResult) {
       return {
@@ -338,11 +338,11 @@ export async function handleLogFragment(
         .onConflictDoNothing()
     }
 
-    // Mark thread for wiki regen (PENDING signals regen needed)
+    // Mark wiki for regen (PENDING signals regen needed)
     await deps.db
-      .update(threadsTable)
+      .update(wikisTable)
       .set({ state: 'PENDING', updatedAt: now })
-      .where(eq(threadsTable.lookupKey, threadResult.lookupKey))
+      .where(eq(wikisTable.lookupKey, threadResult.lookupKey))
 
     await emitAuditEvent(deps.db, {
       entityType: 'fragment',
@@ -535,7 +535,7 @@ export async function handleCreateWiki(
       inferred = true
     }
 
-    await deps.db.insert(threadsTable).values({
+    await deps.db.insert(wikisTable).values({
       lookupKey,
       slug: finalSlug,
       name: input.title.trim(),
@@ -608,25 +608,25 @@ export async function handleEditWiki(
     // Resolve wiki by exact slug match (exclude soft-deleted)
     const [wiki] = await deps.db
       .select({
-        lookupKey: threadsTable.lookupKey,
-        slug: threadsTable.slug,
-        content: threadsTable.content,
+        lookupKey: wikisTable.lookupKey,
+        slug: wikisTable.slug,
+        content: wikisTable.content,
       })
-      .from(threadsTable)
-      .where(and(eq(threadsTable.slug, input.wikiSlug.trim()), isNull(threadsTable.deletedAt)))
+      .from(wikisTable)
+      .where(and(eq(wikisTable.slug, input.wikiSlug.trim()), isNull(wikisTable.deletedAt)))
       .limit(1)
 
     if (!wiki) {
-      // Provide suggestions via resolveThreadBySlug
+      // Provide suggestions via resolveWikiBySlug
       const resolverDeps: McpResolverDeps = { db: deps.db }
-      const resolved = await resolveThreadBySlug(resolverDeps, input.wikiSlug.trim())
+      const resolved = await resolveWikiBySlug(resolverDeps, input.wikiSlug.trim())
       if ('error' in resolved) {
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(resolved) }],
           isError: true as const,
         }
       }
-      // Shouldn't reach here if resolveThreadBySlug returned an error
+      // Shouldn't reach here if resolveWikiBySlug returned an error
       return {
         content: [{ type: 'text' as const, text: `Error: wiki "${input.wikiSlug}" not found` }],
         isError: true as const,
@@ -637,9 +637,9 @@ export async function handleEditWiki(
 
     // Update canonical content
     await deps.db
-      .update(threadsTable)
+      .update(wikisTable)
       .set({ content: input.content, updatedAt: new Date() })
-      .where(eq(threadsTable.lookupKey, wiki.lookupKey))
+      .where(eq(wikisTable.lookupKey, wiki.lookupKey))
 
     // Store previous content as edit record (diff computation deferred)
     await deps.db.insert(editsTable).values({
@@ -704,8 +704,8 @@ export async function handleDeleteWiki(
   try {
     const [wiki] = await deps.db
       .select()
-      .from(threadsTable)
-      .where(and(eq(threadsTable.lookupKey, input.wikiKey.trim()), isNull(threadsTable.deletedAt)))
+      .from(wikisTable)
+      .where(and(eq(wikisTable.lookupKey, input.wikiKey.trim()), isNull(wikisTable.deletedAt)))
 
     if (!wiki) {
       return {
@@ -715,9 +715,9 @@ export async function handleDeleteWiki(
     }
 
     await deps.db
-      .update(threadsTable)
+      .update(wikisTable)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(threadsTable.lookupKey, input.wikiKey.trim()))
+      .where(eq(wikisTable.lookupKey, input.wikiKey.trim()))
 
     // Hard-delete group memberships — soft-delete doesn't trigger FK CASCADE
     await deps.db.delete(groupWikisTable).where(eq(groupWikisTable.wikiId, input.wikiKey.trim()))

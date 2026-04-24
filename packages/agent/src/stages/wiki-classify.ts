@@ -41,7 +41,7 @@ export async function wikiClassify(
     wikis.map((t) => ({
       key: t.lookupKey,
       name: t.name,
-      threadType: t.type,
+      wikiType: t.type,
       description: t.prompt ?? '',
     }))
   )
