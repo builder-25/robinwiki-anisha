@@ -121,7 +121,23 @@ export function SectionedMarkdownBody({
   const lines = content.split("\n");
   const citationsByAnchor = buildCitationsByAnchor(sections);
 
-  const preamble = lines.slice(0, parsed[0].startLine).join("\n");
+  // The preamble covers every line up to the first renderable (non-H1)
+  // section. For docs that open with an H1 followed by intro prose before
+  // the first H2 (the Transformer fixture's shape), this captures the
+  // intro. H1 heading lines themselves are stripped — the page chrome
+  // owns the document-level heading via <WikiEntityArticle>.
+  const firstRenderedIdx = parsed.findIndex((s) => s.level !== 1);
+  const preambleEnd =
+    firstRenderedIdx === -1 ? lines.length : parsed[firstRenderedIdx].startLine;
+  const h1LineIndices = new Set(
+    parsed.filter((s) => s.level === 1).map((s) => s.startLine),
+  );
+  const preambleLines: string[] = [];
+  for (let i = 0; i < preambleEnd; i++) {
+    if (h1LineIndices.has(i)) continue;
+    preambleLines.push(lines[i]);
+  }
+  const preamble = preambleLines.join("\n");
   const blocks: ReactNode[] = [];
   if (preamble.trim().length > 0) {
     blocks.push(

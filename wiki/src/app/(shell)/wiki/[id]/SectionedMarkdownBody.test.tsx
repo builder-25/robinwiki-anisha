@@ -69,4 +69,44 @@ describe("<SectionedMarkdownBody> — issue #152 regression", () => {
     expect(screen.getAllByText(/Body A\./)).toHaveLength(1);
     expect(screen.getAllByText(/Body B\./)).toHaveLength(1);
   });
+
+  it("renders the intro paragraph between H1 and the first H2 exactly once", () => {
+    // Matches the real Transformer fixture shape — H1, blank, intro prose
+    // (with entity tokens), blank, then the first H2. The intro must
+    // appear in the rendered output or the wiki loses its lead paragraph.
+    const content = [
+      "# Transformer Architecture",
+      "",
+      "The Transformer discards recurrence in favour of attention.",
+      "",
+      "## Overview",
+      "",
+      "Body of overview.",
+    ].join("\n");
+
+    render(
+      <SectionedMarkdownBody
+        content={content}
+        refs={{}}
+        sections={undefined}
+        style={noStyle}
+      />,
+    );
+
+    // Intro appears exactly once.
+    expect(
+      screen.getAllByText(
+        /The Transformer discards recurrence in favour of attention\./,
+      ),
+    ).toHaveLength(1);
+    // Body also appears exactly once (regression guard shared with case 1).
+    expect(screen.getAllByText(/Body of overview\./)).toHaveLength(1);
+    // H1 heading line is still NOT rendered (page chrome owns it).
+    expect(
+      screen.queryByRole("heading", {
+        level: 1,
+        name: /Transformer Architecture/,
+      }),
+    ).toBeNull();
+  });
 });
