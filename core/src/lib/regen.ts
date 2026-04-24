@@ -96,6 +96,7 @@ export async function classifyUnfiledFragments(
       name: wikis.name,
       type: wikis.type,
       prompt: wikis.prompt,
+      description: wikis.description,
       embedding: wikis.embedding,
     })
     .from(wikis)
@@ -104,12 +105,12 @@ export async function classifyUnfiledFragments(
 
   if (!wiki) return { linked: 0, autoFiled: 0, llmFiled: 0, llmRejected: 0 }
 
-  // If wiki has no embedding, generate one from name + prompt
+  // If wiki has no embedding, generate one from name + description (WHAT the wiki is about)
   let wikiEmbedding = wiki.embedding
   if (!wikiEmbedding) {
     try {
       const orConfig = await loadOpenRouterConfig()
-      const text = `${wiki.name} ${wiki.prompt ?? ''}`.trim()
+      const text = `${wiki.name} ${wiki.description ?? ''}`.trim()
       const vec = await embedText(text, {
         apiKey: orConfig.apiKey,
         model: orConfig.models.embedding,
@@ -218,6 +219,7 @@ export async function classifyUnfiledFragments(
             name: wikis.name,
             type: wikis.type,
             prompt: wikis.prompt,
+            description: wikis.description,
           })
           .from(wikis)
           .where(

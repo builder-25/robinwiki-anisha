@@ -390,6 +390,7 @@ async function processLinkJob(job: LinkJob): Promise<JobResult> {
             name: wikis.name,
             type: wikis.type,
             prompt: wikis.prompt,
+            description: wikis.description,
           })
           .from(wikis)
           .where(

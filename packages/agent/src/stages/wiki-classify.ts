@@ -42,7 +42,7 @@ export async function wikiClassify(
       key: t.lookupKey,
       name: t.name,
       wikiType: t.type,
-      description: t.prompt ?? '',
+      description: t.description ?? '',
     }))
   )
 
