@@ -108,7 +108,7 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
           .string()
           .optional()
           .describe(
-            'What this wiki is for — used to infer the type when `type` is omitted'
+            'What this wiki is for — persisted on the wiki row and used to infer the type when `type` is omitted'
           ),
         type: z
           .string()

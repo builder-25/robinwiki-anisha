@@ -539,6 +539,7 @@ export async function handleCreateWiki(
       lookupKey,
       slug: finalSlug,
       name: input.title.trim(),
+      description: input.description?.trim() ?? '',
       type: resolvedType,
       state: 'PENDING',
       prompt: '',
