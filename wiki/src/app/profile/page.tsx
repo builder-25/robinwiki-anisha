@@ -39,6 +39,7 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { useProfile } from "@/hooks/useProfile";
 import { useStats } from "@/hooks/useStats";
 import { useLogout } from "@/hooks/useLogout";
+import { useChangePassword } from "@/hooks/useChangePassword";
 import { exportUserData, getUserKeypair } from "@/lib/api";
 
 const sectionLabel: CSSProperties = {
@@ -81,9 +82,13 @@ export default function ProfilePage() {
   const statsQuery = useStats();
   const modelPrefs = useModelPreferences();
   const logout = useLogout();
+  const changePassword = useChangePassword();
   const [copied, setCopied] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
 
   const username = session?.user?.name ?? session?.user?.email ?? "";
   const canDelete = username.length > 0 && deleteConfirm === username;
@@ -399,6 +404,101 @@ export default function ProfilePage() {
                 icon={<LogOut className="size-4" strokeWidth={1.5} />}
                 onClick={logout}
               />
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* SECURITY */}
+        <section className="mt-8" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={sectionLabel}>Security</p>
+          <Card size="sm" className="rounded-none">
+            <CardContent className="space-y-4">
+              <div>
+                <p style={titleText}>Change password</p>
+                <p style={{ ...bodySmallText, marginTop: 2 }}>
+                  Update your account password.
+                </p>
+              </div>
+              <form
+                className="space-y-3"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (newPw !== confirmPw) return;
+                  await changePassword.mutate({ currentPassword: currentPw, newPassword: newPw });
+                  if (!changePassword.error) {
+                    setCurrentPw("");
+                    setNewPw("");
+                    setConfirmPw("");
+                  }
+                }}
+              >
+                <div className="space-y-1">
+                  <Label htmlFor="current-password" style={{ ...T.micro, color: "var(--heading-secondary)" }}>
+                    Current password
+                  </Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPw}
+                    onChange={(e) => setCurrentPw(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="new-password" style={{ ...T.micro, color: "var(--heading-secondary)" }}>
+                    New password
+                  </Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPw}
+                    onChange={(e) => setNewPw(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="confirm-password" style={{ ...T.micro, color: "var(--heading-secondary)" }}>
+                    Confirm new password
+                  </Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPw}
+                    onChange={(e) => setConfirmPw(e.target.value)}
+                  />
+                </div>
+                {newPw.length > 0 && confirmPw.length > 0 && newPw !== confirmPw && (
+                  <p style={{ ...T.micro, color: "var(--destructive)", margin: 0 }}>
+                    Passwords do not match.
+                  </p>
+                )}
+                {changePassword.error && (
+                  <p style={{ ...T.micro, color: "var(--destructive)", margin: 0 }}>
+                    {changePassword.error}
+                  </p>
+                )}
+                {changePassword.isSuccess && (
+                  <p style={{ ...T.micro, color: "var(--emerald-600, #059669)", margin: 0 }}>
+                    Password changed successfully.
+                  </p>
+                )}
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={
+                    changePassword.isLoading ||
+                    !currentPw ||
+                    !newPw ||
+                    !confirmPw ||
+                    newPw !== confirmPw
+                  }
+                >
+                  <span style={T.buttonSmall}>
+                    {changePassword.isLoading ? "Changing..." : "Change password"}
+                  </span>
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </section>
