@@ -32,6 +32,7 @@ cd "${PROJECT_ROOT:-.}"
 source core/.env 2>/dev/null || true
 
 SERVER_URL="${SERVER_URL:-http://localhost:3000}"
+WIKI_URL="${WIKI_URL:-http://localhost:8080}"
 COOKIE_JAR=$(mktemp /tmp/uat-cookies-99-XXXXXX.txt)
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
@@ -117,6 +118,43 @@ sweep() {
   pass "$step $path — 200, valid JSON, shape OK"
 }
 
+# ── Helper: sweep one binary endpoint ────────────────────────
+# Like sweep, but for binary responses — verifies status, content-type
+# prefix, and non-empty body. The base URL is configurable so the same
+# helper handles both core (favicon) and the wiki frontend (image
+# assets) without duplicating the curl shape.
+# Args: $1 = step id, $2 = URL path, $3 = expected content-type prefix,
+#       $4 = optional base URL (default: $SERVER_URL)
+sweep_binary() {
+  local step="$1"
+  local path="$2"
+  local expected_ct_prefix="$3"
+  local base="${4:-$SERVER_URL}"
+  local body tmp_body http_code ct body_len
+  tmp_body=$(mktemp /tmp/uat-99-binary-XXXXXX)
+  # GET (not HEAD): some Hono static handlers omit Content-Length on
+  # HEAD responses (favicon does this), so measure the actual download.
+  http_code=$(curl -s -o "$tmp_body" -w "%{http_code}|%{content_type}|%{size_download}" \
+    -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" "$base$path")
+  ct=$(echo "$http_code" | awk -F'|' '{print $2}')
+  body_len=$(echo "$http_code" | awk -F'|' '{print $3}')
+  http_code=$(echo "$http_code" | awk -F'|' '{print $1}')
+  rm -f "$tmp_body"
+  if [ "$http_code" = "200" ]; then
+    if echo "$ct" | grep -q "^$expected_ct_prefix"; then
+      if [ -n "$body_len" ] && [ "$body_len" -gt "0" ]; then
+        pass "$step $base$path 200 + $expected_ct_prefix + ${body_len}B body"
+      else
+        fail "$step $base$path 200 + correct CT but empty body"
+      fi
+    else
+      fail "$step $base$path 200 but content-type='$ct' (expected prefix '$expected_ct_prefix')"
+    fi
+  else
+    fail "$step $base$path non-200: HTTP $http_code"
+  fi
+}
+
 # ── 1. Listing endpoints ─────────────────────────────────────
 sweep "1a." "/wikis?limit=10"                    '.wikis | type == "array"'
 sweep "1b." "/fragments?limit=10"                '.fragments | type == "array"'
@@ -168,6 +206,18 @@ sweep "4a." "/search?q=attention&limit=5"        '.results // .hits | type == "a
 # ── 5. System / misc ─────────────────────────────────────────
 sweep "5a." "/system/status"                     '.status | type == "string"'
 
+# 5b. Favicon — covers #156. The route was added so MCP clients (and
+# browsers hitting the core URL directly) stop falling back to an ugly
+# placeholder. Pre-fix this 404'd; the smoke is one-line on $SERVER_URL.
+sweep_binary "5b." "/favicon.ico" "image/x-icon"
+
+# 5c. Seeded demo image asset — covers #160. The Transformer fixture's
+# infobox.image.url points at /images/transformer-architecture.svg; the
+# asset is served by the wiki Next.js frontend (NOT core), so this sweep
+# targets $WIKI_URL. Pre-#160 the SVG didn't exist and the renderer's
+# image branch had nothing to load.
+sweep_binary "5c." "/images/transformer-architecture.svg" "image/svg+xml" "$WIKI_URL"
+
 # ── 6. Cross-kind: every response referenced by the sidecar parses ───
 # Walks the wiki detail's `refs` map — every person/fragment/wiki/entry
 # reference must resolve to a live detail endpoint. Catches "seed created
@@ -198,6 +248,26 @@ else
   fail "6. $BROKEN_REFS sidecar refs point at missing or erroring detail rows"
 fi
 
+# ── 7. Cross-asset linkage — sidecar infobox.image.url resolves ──
+# Covers #160. The wiki sidecar's infobox may carry an image URL; the
+# renderer's image branch is dead weight unless that URL is fetchable.
+# This step closes the loop: take the URL the API serves and confirm
+# it returns 200 from the wiki frontend (which is where /images/* is
+# hosted — NOT core). If the seeded fixture doesn't include an image,
+# this is a documented SKIP.
+IMAGE_URL=$(curl -s -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" \
+  "$SERVER_URL/wikis/$WIKI_KEY" | jq -r '.infobox.image.url // empty')
+if [ -n "$IMAGE_URL" ]; then
+  CODE=$(curl -sI -o /dev/null -w "%{http_code}" "$WIKI_URL$IMAGE_URL")
+  if [ "$CODE" = "200" ]; then
+    pass "7a. infobox.image.url ($IMAGE_URL) resolves 200 on \$WIKI_URL"
+  else
+    fail "7a. infobox.image.url $IMAGE_URL returned $CODE on \$WIKI_URL"
+  fi
+else
+  skip "7a. infobox.image.url not present on this wiki — nothing to resolve"
+fi
+
 echo ""
 echo "$PASS passed, $FAIL failed, $SKIP skipped"
 ```
@@ -213,8 +283,9 @@ echo "$PASS passed, $FAIL failed, $SKIP skipped"
 | 2 | Detail endpoints (`/wikis/:id` incl. sidecar keys, `/wikis/:id/timeline`, `/wikis/:id/history`, `/fragments/:id`, `/people/:id`) all 200 + shape | detail surface; #139 regression guard |
 | 3 | `/graph` returns valid nodes + edges; every node has a schema-known type | #153 regression guard |
 | 4 | `/search` returns results shape | search endpoint |
-| 5 | `/system/status` returns 200 + `.status` | system endpoint |
+| 5 | `/system/status` returns 200 + `.status`; `/favicon.ico` (5b) returns 200 + `image/x-icon` on `$SERVER_URL`; `/images/transformer-architecture.svg` (5c) returns 200 + `image/svg+xml` on `$WIKI_URL` | system endpoint; #156 (favicon); #160 (SVG asset) |
 | 6 | Every ref in the wiki sidecar resolves to a live detail endpoint | cross-kind integrity |
+| 7 | The wiki sidecar's `infobox.image.url`, when present, resolves 200 on `$WIKI_URL` (cross-asset linkage) | #160 |
 
 ---
 
