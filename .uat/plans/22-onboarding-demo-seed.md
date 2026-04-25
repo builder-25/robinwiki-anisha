@@ -372,7 +372,7 @@ fi
 # A seeded wiki that never reached RESOLVED means the seed path broke
 # before finalization — the wiki listing would show it but detail pages
 # would refuse to render.
-WIKI_STATE=$(psql -t -A -c "SELECT state FROM wikis WHERE slug='transformer-architecture' AND deleted_at IS NULL" 2>/dev/null | tr -d '[:space:]')
+WIKI_STATE=$(psql "$DATABASE_URL" -t -A -c "SELECT state FROM wikis WHERE slug='transformer-architecture' AND deleted_at IS NULL" 2>/dev/null | tr -d '[:space:]')
 if [ "$WIKI_STATE" = "RESOLVED" ]; then
   pass "7a. seeded demo wiki is RESOLVED"
 else
@@ -406,7 +406,7 @@ fi
 # that long — but a SELECT that returns a definite integer proves the
 # index exists and the columns were migrated. Logs the count so a
 # soak test downstream can assert convergence to zero.
-UNEMBEDDED=$(psql -t -A -c "SELECT COUNT(*) FROM fragments WHERE embedding IS NULL AND deleted_at IS NULL" 2>/dev/null | tr -d '[:space:]')
+UNEMBEDDED=$(psql "$DATABASE_URL" -t -A -c "SELECT COUNT(*) FROM fragments WHERE embedding IS NULL AND deleted_at IS NULL" 2>/dev/null | tr -d '[:space:]')
 if [[ "$UNEMBEDDED" =~ ^[0-9]+$ ]]; then
   pass "7c. unembedded-fragments count is observable (=$UNEMBEDDED)"
   echo "    ↳ soak target: this value should trend to 0 as the retry scheduler runs"
@@ -415,8 +415,8 @@ else
 fi
 
 # 7d. Columns added by migration 0006 exist on fragments.
-HAS_ATTEMPT_COL=$(psql -t -A -c "SELECT 1 FROM information_schema.columns WHERE table_name='fragments' AND column_name='embedding_attempt_count'" 2>/dev/null | tr -d '[:space:]')
-HAS_LAST_COL=$(psql -t -A -c "SELECT 1 FROM information_schema.columns WHERE table_name='fragments' AND column_name='embedding_last_attempt_at'" 2>/dev/null | tr -d '[:space:]')
+HAS_ATTEMPT_COL=$(psql "$DATABASE_URL" -t -A -c "SELECT 1 FROM information_schema.columns WHERE table_name='fragments' AND column_name='embedding_attempt_count'" 2>/dev/null | tr -d '[:space:]')
+HAS_LAST_COL=$(psql "$DATABASE_URL" -t -A -c "SELECT 1 FROM information_schema.columns WHERE table_name='fragments' AND column_name='embedding_last_attempt_at'" 2>/dev/null | tr -d '[:space:]')
 if [ "$HAS_ATTEMPT_COL" = "1" ] && [ "$HAS_LAST_COL" = "1" ]; then
   pass "7d. embedding retry bookkeeping columns present"
 else
@@ -425,7 +425,7 @@ fi
 
 # 7e. The partial index #151 added exists. Without it the retry scan
 # degrades to a table scan at scale.
-HAS_PARTIAL_IDX=$(psql -t -A -c "SELECT 1 FROM pg_indexes WHERE indexname='fragments_embedding_null_idx' AND indexdef LIKE '%WHERE%embedding IS NULL%deleted_at IS NULL%'" 2>/dev/null | tr -d '[:space:]')
+HAS_PARTIAL_IDX=$(psql "$DATABASE_URL" -t -A -c "SELECT 1 FROM pg_indexes WHERE indexname='fragments_embedding_null_idx' AND indexdef LIKE '%WHERE%embedding IS NULL%deleted_at IS NULL%'" 2>/dev/null | tr -d '[:space:]')
 if [ "$HAS_PARTIAL_IDX" = "1" ]; then
   pass "7e. fragments_embedding_null_idx is partial on embedding/deleted_at"
 else
@@ -441,15 +441,14 @@ fi
 # a fresh HTTP create_wiki round-trips through 2xx.
 
 # 8a. The seed succeeded — verified by step 2b/7a above. Strengthen it:
-# the description column is readable on the seeded row (i.e. migration
-# 0007 actually applied, not just present in the file).
-DESC_COL_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -b "$COOKIE_JAR" \
-  -H "Origin: http://localhost:3000" "$SERVER_URL/wikis?limit=50")
-DESC_COL_OK=$(psql -t -A -c "SELECT description IS NOT NULL FROM wikis WHERE slug='transformer-architecture' AND deleted_at IS NULL" 2>/dev/null | tr -d '[:space:]')
-if [ "$DESC_COL_OK" = "t" ]; then
-  pass "8a. wikis.description column readable on seeded row (migration 0007 applied)"
+# the description column exists on wikis (i.e. migration 0007 applied,
+# not just present in the file). Use information_schema rather than a
+# value test — the seeded row's description may legitimately be NULL.
+HAS_DESC_COL=$(psql "$DATABASE_URL" -t -A -c "SELECT 1 FROM information_schema.columns WHERE table_name='wikis' AND column_name='description'" 2>/dev/null | tr -d '[:space:]')
+if [ "$HAS_DESC_COL" = "1" ]; then
+  pass "8a. wikis.description column exists (migration 0007 applied)"
 else
-  fail "8a. wikis.description column missing on seeded row — migration 0007 did not apply"
+  fail "8a. wikis.description column missing — migration 0007 did not apply"
 fi
 
 # 8b. Cross-surface: HTTP POST /wikis succeeds. Pre-fix this 500'd
