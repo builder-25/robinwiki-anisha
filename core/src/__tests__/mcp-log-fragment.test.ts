@@ -169,7 +169,7 @@ describe('handleLogFragment', () => {
 
   it('derives title from first 80 chars when not provided', async () => {
     const deps = makeDeps()
-    const longContent = 'A'.repeat(100) + ' trailing'
+    const longContent = `${'A'.repeat(100)} trailing`
     await handleLogFragment(
       deps,
       { content: longContent, threadSlug: TEST_WIKI_SLUG },
@@ -220,7 +220,7 @@ describe('handleLogFragment', () => {
       .where(eq(edgesTable.srcId, parsed.fragmentKey))
     const personEdge = edgeRows.find((e) => e.edgeType === 'FRAGMENT_MENTIONS_PERSON')
     expect(personEdge).toBeDefined()
-    expect(personEdge!.dstId).toBe(personKey)
+    expect(personEdge?.dstId).toBe(personKey)
   })
 
   it('proceeds when entity extraction throws (fail-open)', async () => {

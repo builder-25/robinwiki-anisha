@@ -34,7 +34,7 @@ export async function processEmbeddingRetryJob(
   log.info({ jobId: job.jobId }, 'processing embedding retry batch')
   const t0 = performance.now()
 
-  let config
+  let config: Awaited<ReturnType<typeof loadOpenRouterConfig>> | undefined
   try {
     config = await loadOpenRouterConfig()
   } catch (err) {

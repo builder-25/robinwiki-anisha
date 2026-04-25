@@ -51,7 +51,7 @@ export async function probeEmbeddingsOrRefuseWorkers(): Promise<
   | { status: 'no-key' }
   | { status: 'unreachable'; detail: string }
 > {
-  let config
+  let config: Awaited<ReturnType<typeof loadOpenRouterConfig>> | undefined
   try {
     config = await loadOpenRouterConfig()
   } catch (err) {

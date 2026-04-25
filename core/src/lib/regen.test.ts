@@ -85,13 +85,14 @@ vi.mock('../db/client.js', () => {
           }
           return {
             // Terminal awaits: the test queue pops one entry.
+            // biome-ignore lint/suspicious/noThenProperty: Drizzle thenable mock
             then: (onFulfilled: (v: unknown[]) => unknown, onRejected?: (r: unknown) => unknown) =>
               ensureDeferred().then(onFulfilled, onRejected),
             orderBy: () => ({
               limit: async () => popResponse(),
             }),
             groupBy: () => ({
-              // groupBy is thenable on its own in drizzle chains — pop here too.
+              // biome-ignore lint/suspicious/noThenProperty: Drizzle thenable mock
               then: (onFulfilled: (v: unknown[]) => unknown) =>
                 Promise.resolve(popResponse()).then(onFulfilled),
             }),
@@ -107,6 +108,7 @@ vi.mock('../db/client.js', () => {
         where: (..._args: unknown[]) => {
           dbUpdates.push(data)
           return {
+            // biome-ignore lint/suspicious/noThenProperty: Drizzle thenable mock
             then: (onFulfilled: (v: unknown) => unknown, onRejected?: (r: unknown) => unknown) =>
               Promise.resolve(undefined).then(onFulfilled, onRejected),
             returning: async () => [{ lookupKey: 'wiki-key-1', state: 'LINKING' }],

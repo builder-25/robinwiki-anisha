@@ -418,7 +418,7 @@ export async function classifyUnfiledFragments(
  * and the background regen worker.
  */
 export async function regenerateWiki(
-  database: DB = defaultDb,
+  database: DB,
   wikiKey: string,
   opts?: { skipEmbedding?: boolean }
 ): Promise<RegenResult> {
@@ -609,7 +609,7 @@ export async function regenerateWiki(
       const lastDot = raw.lastIndexOf('.')
       const lastNewline = raw.lastIndexOf('\n')
       const boundary = Math.max(lastDot, lastNewline)
-      const truncated = boundary > 0 ? raw.slice(0, boundary + 1) : raw + '...'
+      const truncated = boundary > 0 ? raw.slice(0, boundary + 1) : `${raw}...`
       return `- [[${w.slug}]] (${w.type}): ${w.name}\n  > ${truncated.trim()}`
     }).join('\n')
   }
@@ -645,7 +645,7 @@ export async function regenerateWiki(
   // Load prompt spec with runtime fallback on override parse/validation failure.
   // A malformed stored YAML must not crash the regen worker — log a warn and retry
   // with no override (disk default).
-  let spec
+  let spec: ReturnType<typeof loadWikiGenerationSpec> | undefined
   try {
     spec = loadWikiGenerationSpec(wiki.type as WikiType, vars, override)
   } catch (err) {

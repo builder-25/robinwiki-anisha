@@ -241,8 +241,8 @@ export async function handleLogFragment(
     }
 
     // Entity extraction (fail-open)
-    let personKeys: string[] = []
-    let newPeople: Array<{ personKey: string; canonicalName: string }> = []
+    const personKeys: string[] = []
+    const newPeople: Array<{ personKey: string; canonicalName: string }> = []
     try {
       const knownPeople = await deps.loadUserPeople(userId)
       const knownPeopleJson =
@@ -529,8 +529,7 @@ export async function handleCreateWiki(
             {
               type: 'text' as const,
               text:
-                `Error: unknown wiki type "${explicitType}". ` +
-                'Use the get_wiki_types tool to list valid types.',
+                `Error: unknown wiki type "${explicitType}". Use the get_wiki_types tool to list valid types.`,
             },
           ],
           isError: true as const,
