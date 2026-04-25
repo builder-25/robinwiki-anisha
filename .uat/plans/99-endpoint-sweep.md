@@ -130,11 +130,17 @@ sweep_binary() {
   local path="$2"
   local expected_ct_prefix="$3"
   local base="${4:-$SERVER_URL}"
-  local headers ct body_len
-  headers=$(curl -sI -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" "$base$path")
-  body_len=$(echo "$headers" | awk -F': ' 'tolower($1)=="content-length"{print $2}' | tr -d '\r')
-  ct=$(echo "$headers" | awk -F': ' 'tolower($1)=="content-type"{print $2}' | tr -d '\r')
-  if echo "$headers" | head -1 | grep -q ' 200'; then
+  local body tmp_body http_code ct body_len
+  tmp_body=$(mktemp /tmp/uat-99-binary-XXXXXX)
+  # GET (not HEAD): some Hono static handlers omit Content-Length on
+  # HEAD responses (favicon does this), so measure the actual download.
+  http_code=$(curl -s -o "$tmp_body" -w "%{http_code}|%{content_type}|%{size_download}" \
+    -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" "$base$path")
+  ct=$(echo "$http_code" | awk -F'|' '{print $2}')
+  body_len=$(echo "$http_code" | awk -F'|' '{print $3}')
+  http_code=$(echo "$http_code" | awk -F'|' '{print $1}')
+  rm -f "$tmp_body"
+  if [ "$http_code" = "200" ]; then
     if echo "$ct" | grep -q "^$expected_ct_prefix"; then
       if [ -n "$body_len" ] && [ "$body_len" -gt "0" ]; then
         pass "$step $base$path 200 + $expected_ct_prefix + ${body_len}B body"
@@ -145,7 +151,7 @@ sweep_binary() {
       fail "$step $base$path 200 but content-type='$ct' (expected prefix '$expected_ct_prefix')"
     fi
   else
-    fail "$step $base$path non-200: $(echo "$headers" | head -1)"
+    fail "$step $base$path non-200: HTTP $http_code"
   fi
 }
 
