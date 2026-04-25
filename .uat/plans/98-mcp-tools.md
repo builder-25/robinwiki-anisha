@@ -425,13 +425,15 @@ if [ -n "${PERSON_KEY:-}" ] && [ "$PERSON_KEY" != "null" ]; then
       || fail "10b. people.deleted_at not set (got '$PERSON_DEL')"
 
     # Restore the seeded fixture — downstream plans depend on
-    # ashish-vaswani being present and undeleted. The seed-fixture CLI
-    # path resurrects soft-deleted rows by clearing deleted_at as part
-    # of its slug-keyed upsert.
-    pnpm -C core seed-fixture >/dev/null 2>&1 || true
-    RESTORED=$(psql "$DATABASE_URL" -t -A -c "SELECT deleted_at IS NULL FROM people WHERE slug='ashish-vaswani'" 2>/dev/null | tr -d '[:space:]')
-    [ "$RESTORED" = "t" ] && pass "10c. seed-fixture restored ashish-vaswani (deleted_at IS NULL)" \
-      || fail "10c. seed-fixture did not restore ashish-vaswani (deleted_at NULL? got '$RESTORED') — downstream plans will break"
+    # ashish-vaswani being present and undeleted. seed-fixture's INSERT
+    # path collides with the existing soft-deleted row's UNIQUE(slug)
+    # constraint (it does not clear deleted_at on conflict). Issue
+    # filed; restore directly via UPDATE so the plan is self-healing
+    # and downstream plans don't break on a clean local stack.
+    psql "$DATABASE_URL" -c "UPDATE people SET deleted_at = NULL, updated_at = now() WHERE lookup_key='$PERSON_KEY' AND deleted_at IS NOT NULL" >/dev/null 2>&1 || true
+    RESTORED=$(psql "$DATABASE_URL" -t -A -c "SELECT deleted_at IS NULL FROM people WHERE lookup_key='$PERSON_KEY'" 2>/dev/null | tr -d '[:space:]')
+    [ "$RESTORED" = "t" ] && pass "10c. ashish-vaswani restored (deleted_at cleared, downstream plans unaffected)" \
+      || fail "10c. failed to restore ashish-vaswani (deleted_at NULL? got '$RESTORED') — downstream plans will break"
   else
     skip "10b. DATABASE_URL unset — person soft-delete invariant skipped"
     skip "10c. DATABASE_URL unset — fixture restore via seed-fixture skipped"
