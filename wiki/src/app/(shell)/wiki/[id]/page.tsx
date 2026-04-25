@@ -3,7 +3,7 @@
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Check, RefreshCw, Trash2, X } from "lucide-react";
+import { Check, LinkIcon, RefreshCw, Trash2, X } from "lucide-react";
 import { T } from "@/lib/typography";
 import { Spinner } from "@/components/ui/spinner";
 import { useWiki } from "@/hooks/useWiki";
@@ -129,6 +129,7 @@ export default function WikiDetailPage() {
   const rejectFragment = useRejectFragment();
   const queryClient = useQueryClient();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // Section-scoped edit state. `editingSectionId` doubles as the
   // "dialog open" indicator — non-null ⇒ open. The anchor id is stable
@@ -369,6 +370,35 @@ export default function WikiDetailPage() {
               <Trash2 size={14} strokeWidth={1.5} />
               {deleteWiki.isPending ? "Deleting..." : "Delete Wiki"}
             </button>
+            {wiki.published && wiki.publishedSlug && (
+              <button
+                type="button"
+                onClick={() => {
+                  const url = `${window.location.origin}/p/${wiki.publishedSlug}`;
+                  navigator.clipboard.writeText(url);
+                  setShareCopied(true);
+                  setTimeout(() => setShareCopied(false), 2000);
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 10px",
+                  fontSize: 12,
+                  color: "var(--wiki-article-link)",
+                  background: "none",
+                  border: "1px solid var(--wiki-card-border)",
+                  cursor: "pointer",
+                }}
+              >
+                {shareCopied ? (
+                  <Check size={14} strokeWidth={1.5} />
+                ) : (
+                  <LinkIcon size={14} strokeWidth={1.5} />
+                )}
+                {shareCopied ? "Copied!" : "Copy share link"}
+              </button>
+            )}
             {regenerate.isSuccess && (
               <span style={{ fontSize: 12, color: "var(--wiki-article-link)" }}>
                 Regeneration queued

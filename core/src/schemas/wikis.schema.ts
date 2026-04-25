@@ -42,6 +42,8 @@ export const wikiResponseSchema = z.object({
   descriptor: z.string().default(''),
   progress: wikiProgressSchema.nullable().default(null),
   bouncerMode: z.enum(['auto', 'review']).default('auto'),
+  published: z.boolean().default(false),
+  publishedSlug: z.string().nullable().default(null),
 })
 
 export const wikiWithContentResponseSchema = wikiResponseSchema.extend({
