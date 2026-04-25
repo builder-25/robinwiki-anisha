@@ -432,6 +432,61 @@ else
   fail "7e. partial index missing or non-partial — retry scan will degrade"
 fi
 
+# ── 8. wikis.description column accepts INSERTs ────────────
+# Regression guard for #167. Pre-fix every wiki INSERT failed because
+# drizzle's insert lists the description column but no migration created
+# it (visible as a swallowed error in seedDemoWiki on first-user
+# provisioning, plus 500s on MCP create_wiki and HTTP POST /wikis).
+# This step proves the seeded wiki row is readable on .description AND
+# a fresh HTTP create_wiki round-trips through 2xx.
+
+# 8a. The seed succeeded — verified by step 2b/7a above. Strengthen it:
+# the description column is readable on the seeded row (i.e. migration
+# 0007 actually applied, not just present in the file).
+DESC_COL_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -b "$COOKIE_JAR" \
+  -H "Origin: http://localhost:3000" "$SERVER_URL/wikis?limit=50")
+DESC_COL_OK=$(psql -t -A -c "SELECT description IS NOT NULL FROM wikis WHERE slug='transformer-architecture' AND deleted_at IS NULL" 2>/dev/null | tr -d '[:space:]')
+if [ "$DESC_COL_OK" = "t" ]; then
+  pass "8a. wikis.description column readable on seeded row (migration 0007 applied)"
+else
+  fail "8a. wikis.description column missing on seeded row — migration 0007 did not apply"
+fi
+
+# 8b. Cross-surface: HTTP POST /wikis succeeds. Pre-fix this 500'd
+# because the column referenced in the INSERT didn't exist in the DB.
+RESP_CODE=$(curl -s -o /tmp/uat-22-create-wiki.json -w "%{http_code}" -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://localhost:3000" \
+  -d '{"name":"UAT description test","type":"log"}' \
+  "$SERVER_URL/wikis")
+if [ "$RESP_CODE" = "200" ] || [ "$RESP_CODE" = "201" ]; then
+  pass "8b. HTTP POST /wikis returns $RESP_CODE (description column present in DB)"
+  # Cleanup: soft-delete the UAT row so downstream plans see a clean
+  # seeded fixture. Response shape carries both .lookupKey and .id —
+  # prefer lookupKey since that's the documented routing key.
+  KEY=$(jq -r '.lookupKey // .id' /tmp/uat-22-create-wiki.json 2>/dev/null)
+  if [ -n "$KEY" ] && [ "$KEY" != "null" ]; then
+    curl -s -o /dev/null -X DELETE -b "$COOKIE_JAR" \
+      -H "Origin: http://localhost:3000" "$SERVER_URL/wikis/$KEY" || true
+  fi
+else
+  fail "8b. HTTP POST /wikis returned $RESP_CODE — description column may be missing"
+fi
+
+# ── 9. Embedding retry execution ────────────────────────────
+# step 9 graduates from SKIP to a real assertion once /admin/scheduler/run-now/embedding-retry exists (PR D)
+#
+# Plan 22 step 7c only proves the unembedded count is observable. A real
+# assertion that the retry worker executes — i.e. the end-to-end
+# correctness of #151 — needs a force-trigger debug endpoint so UAT can
+# drive convergence to zero without waiting for the 15-min scheduler
+# tick. That endpoint (POST /admin/scheduler/run-now/:jobName, gated by
+# NODE_ENV !== 'production') is planned in PR D of this workstream.
+#
+# Until PR D lands, mark this step SKIP. The placeholder keeps the
+# numbering stable so PR D is a pure additive replacement.
+skip "9. embedding retry execution — debug endpoint not yet present"
+
 # ── Cleanup ──────────────────────────────────────────────────
 npx agent-browser close 2>/dev/null || true
 
@@ -452,6 +507,8 @@ echo "$PASS passed, $FAIL failed, $SKIP skipped"
 | 5 | Explorer lists the seeded wiki; click → detail page with rendered body | onboarding landing path |
 | 6 | Deleting the demo wiki + subsequent sign-in does NOT re-seed (intentional — `ensureFirstUser` only fires when users table is empty); CLI `seed-fixture` remains the documented recovery path | bootstrap gate policy |
 | 7 | Invariants: wiki RESOLVED; embedding retry scheduler registered; unembedded count observable; migration 0006 applied with partial index | #150 + #151 |
+| 8 | `wikis.description` column readable on the seeded row; fresh HTTP `POST /wikis` returns 2xx (cleanup deletes the UAT row) | #167 / migration 0007 |
+| 9 | Embedding retry worker actually heals NULL embeddings — SKIP until `POST /admin/scheduler/run-now/embedding-retry` debug endpoint lands (PR D) | #151 |
 
 ---
 
