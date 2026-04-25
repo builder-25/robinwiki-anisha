@@ -308,6 +308,18 @@ export async function regenerateWiki(
   const [wiki] = await database.select().from(wikis).where(eq(wikis.lookupKey, wikiKey))
   if (!wiki) throw new Error(`Wiki not found: ${wikiKey}`)
 
+  // Optimistic lock: transition to LINKING to prevent concurrent regen runs.
+  // If the wiki is already LINKING, another worker owns it — bail out.
+  const [lockedWiki] = await database
+    .update(wikis)
+    .set({ state: 'LINKING' })
+    .where(and(eq(wikis.lookupKey, wikiKey), ne(wikis.state, 'LINKING')))
+    .returning()
+  if (!lockedWiki) {
+    log.warn({ wikiKey }, 'wiki is already being regenerated, skipping')
+    return { content: '', fragmentCount: 0, hasEmbedding: false, timing: { classify: 0, gatherFragments: 0, llmCall: 0, embed: 0, total: 0 } }
+  }
+
   // Classify unfiled fragments into this wiki before gathering (mechanism 1)
   const tClassify0 = performance.now()
   try {
@@ -551,6 +563,7 @@ export async function regenerateWiki(
       content: markdown,
       metadata: mergedMetadata,
       citationDeclarations: llmCitations,
+      state: 'RESOLVED',
       lastRebuiltAt: now,
       updatedAt: now,
     })

@@ -104,8 +104,13 @@ vi.mock('../db/client.js', () => {
     select: (..._args: unknown[]) => selectChain(),
     update: () => ({
       set: (data: Record<string, unknown>) => ({
-        where: async () => {
+        where: (..._args: unknown[]) => {
           dbUpdates.push(data)
+          return {
+            then: (onFulfilled: (v: unknown) => unknown, onRejected?: (r: unknown) => unknown) =>
+              Promise.resolve(undefined).then(onFulfilled, onRejected),
+            returning: async () => [{ lookupKey: 'wiki-key-1', state: 'LINKING' }],
+          }
         },
       }),
     }),
@@ -124,9 +129,11 @@ vi.mock('../db/schema.js', () => ({
     type: 'wikis.type',
     prompt: 'wikis.prompt',
     slug: 'wikis.slug',
+    state: 'wikis.state',
     content: 'wikis.content',
     metadata: 'wikis.metadata',
     citationDeclarations: 'wikis.citationDeclarations',
+    updatedAt: 'wikis.updatedAt',
     deletedAt: 'wikis.deletedAt',
   },
   wikiTypes: {
@@ -414,11 +421,12 @@ describe('regenerateWiki — sidecar persistence', () => {
 
     expect(result.content).toBe(llmResponse.markdown)
 
-    // First update writes content + metadata + citationDeclarations in one shot
-    const contentUpdate = dbUpdates[0]
+    // First update is the LINKING guard; second writes content + sidecar
+    const contentUpdate = dbUpdates[1]
     expect(contentUpdate).toBeDefined()
     expect(contentUpdate.content).toBe(llmResponse.markdown)
     expect(contentUpdate.citationDeclarations).toEqual(llmResponse.citations)
+    expect(contentUpdate.state).toBe('RESOLVED')
     const merged = contentUpdate.metadata as { infobox: unknown }
     expect(merged).toBeDefined()
     expect(merged.infobox).toEqual(llmResponse.infobox)
@@ -440,10 +448,12 @@ describe('regenerateWiki — sidecar persistence', () => {
 
     await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
 
-    const contentUpdate = dbUpdates[0]
+    // dbUpdates[0] is the LINKING guard; [1] is the content update
+    const contentUpdate = dbUpdates[1]
     expect(contentUpdate).toBeDefined()
     expect(contentUpdate.content).toBe('# Minimal output')
     expect(contentUpdate.citationDeclarations).toEqual([])
+    expect(contentUpdate.state).toBe('RESOLVED')
     const merged = contentUpdate.metadata as { infobox: unknown }
     expect(merged.infobox).toBeNull()
   })
@@ -469,7 +479,8 @@ describe('regenerateWiki — sidecar persistence', () => {
 
     await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
 
-    const contentUpdate = dbUpdates[0]
+    // dbUpdates[0] is the LINKING guard; [1] is the content update
+    const contentUpdate = dbUpdates[1]
     const merged = contentUpdate.metadata as { infobox: unknown; futureField?: unknown }
     expect(merged.infobox).toEqual(llmResponse.infobox)
     expect(merged.futureField).toEqual({ answer: 42 })
