@@ -66,7 +66,7 @@ fragmentsRouter.get('/:id', async (c) => {
     .where(and(eq(edges.srcId, id), isNull(edges.deletedAt)))
 
   // Batch-resolve destination names
-  const backlinks: { id: string; name: string; type: string }[] = []
+  const backlinks: { id: string; name: string; type: string; bouncerMode?: string }[] = []
   const dstByType: Record<string, string[]> = {}
   for (const e of outEdges) {
     const t = e.dstType === 'frag' ? 'fragment' : e.dstType
@@ -76,10 +76,10 @@ fragmentsRouter.get('/:id', async (c) => {
 
   if (dstByType.wiki?.length) {
     const rows = await db
-      .select({ key: wikis.lookupKey, name: wikis.name })
+      .select({ key: wikis.lookupKey, name: wikis.name, bouncerMode: wikis.bouncerMode })
       .from(wikis)
       .where(inArray(wikis.lookupKey, dstByType.wiki))
-    for (const r of rows) backlinks.push({ id: r.key, name: r.name, type: 'wiki' })
+    for (const r of rows) backlinks.push({ id: r.key, name: r.name, type: 'wiki', bouncerMode: r.bouncerMode })
   }
   if (dstByType.person?.length) {
     const rows = await db
@@ -242,6 +242,21 @@ fragmentsRouter.post('/:id/accept', zValidator('json', fragmentReviewBodySchema,
     summary: `Fragment accepted into ${wiki.name ?? wikiId}`,
     detail: { fragmentKey: id, wikiKey: wikiId },
   })
+
+
+    // Queue wiki regen so the accepted fragment's content is incorporated into the wiki body
+    try {
+      await producer.enqueueRegen({
+        type: 'regen',
+        jobId: crypto.randomUUID(),
+        objectKey: wikiId,
+        objectType: 'wiki',
+        triggeredBy: 'manual',
+        enqueuedAt: new Date().toISOString(),
+      })
+    } catch (err) {
+      log.warn({ wikiKey: wikiId, err }, 'failed to enqueue regen after fragment acceptance')
+    }
 
   return c.json({ ok: true, fragmentId: id, wikiId })
 })

@@ -22,10 +22,9 @@ import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { listWikis, getWiki, getFragment, findPersonById, findPersonByQuery, listWikiTypes, briefPerson, resolveWikiBySlug } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
-import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki, handleDeleteWiki, handleDeletePerson } from './handlers.js'
+import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki } from './handlers.js'
 import type { McpServerDeps } from './handlers.js'
 import { wikis, edges, auditLog, groups, groupWikis } from '../db/schema.js'
-import { nanoid24 } from '../lib/id.js'
 import { hybridSearch } from '../lib/search.js'
 import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
 import { emitAuditEvent } from '../db/audit.js'
@@ -142,36 +141,6 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
     },
     async ({ wikiSlug, content }, extra) => {
       return handleEditWiki(deps, { wikiSlug, content }, extra.authInfo?.clientId as string)
-    }
-  )
-
-  server.registerTool(
-    'delete_wiki',
-    {
-      description:
-        'Soft-delete a wiki. The wiki will no longer appear in listings or search. ' +
-        'Use list_wikis to find the lookupKey first.',
-      inputSchema: {
-        wikiKey: z.string().describe('Wiki lookupKey (from list_wikis)'),
-      },
-    },
-    async ({ wikiKey }, extra) => {
-      return handleDeleteWiki(deps, { wikiKey }, extra.authInfo?.clientId as string)
-    }
-  )
-
-  server.registerTool(
-    'delete_person',
-    {
-      description:
-        'Soft-delete a person. The person will no longer appear in listings or search. ' +
-        'Use find_person to find the lookupKey first.',
-      inputSchema: {
-        personKey: z.string().describe('Person lookupKey (from find_person)'),
-      },
-    },
-    async ({ personKey }, extra) => {
-      return handleDeletePerson(deps, { personKey }, extra.authInfo?.clientId as string)
     }
   )
 
@@ -481,141 +450,6 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
       return handleCreateWikiType(deps, { slug, name, shortDescriptor, descriptor, prompt })
     }
   )
-
-  /***********************************************************************
-   * ## Publish tools
-   ***********************************************************************/
-
-  server.registerTool(
-    'publish_wiki',
-    {
-      description:
-        'Publish a wiki with a stable public URL. Generates a nanoid slug on first publish. ' +
-        'Wiki must have content before publishing.',
-      inputSchema: {
-        wikiKey: z.string().describe('Wiki lookupKey or slug'),
-      },
-    },
-    async ({ wikiKey }) => {
-      try {
-        const [wiki] = await deps.db
-          .select()
-          .from(wikis)
-          .where(eq(wikis.lookupKey, wikiKey))
-
-        if (!wiki) {
-          return {
-            content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Wiki not found' }) }],
-            isError: true as const,
-          }
-        }
-
-        if (!wiki.content) {
-          return {
-            content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Cannot publish a wiki with no content' }) }],
-            isError: true as const,
-          }
-        }
-
-        const slug = wiki.publishedSlug ?? nanoid24()
-        const [updated] = await deps.db
-          .update(wikis)
-          .set({
-            published: true,
-            publishedSlug: slug,
-            publishedAt: wiki.publishedAt ?? new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(wikis.lookupKey, wikiKey))
-          .returning()
-
-        await emitAuditEvent(deps.db, {
-          entityType: 'wiki',
-          entityId: wikiKey,
-          eventType: 'published',
-          source: 'mcp',
-          summary: `Wiki published: ${wiki.name}`,
-          detail: { wikiKey, publishedSlug: slug },
-        })
-
-        return {
-          content: [{
-            type: 'text' as const,
-            text: JSON.stringify({
-              published: updated.published,
-              publishedSlug: updated.publishedSlug,
-              publishedAt: updated.publishedAt,
-            }),
-          }],
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err)
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }],
-          isError: true as const,
-        }
-      }
-    }
-  )
-
-  server.registerTool(
-    'unpublish_wiki',
-    {
-      description:
-        'Unpublish a wiki. The slug is preserved so re-publishing restores the same URL.',
-      inputSchema: {
-        wikiKey: z.string().describe('Wiki lookupKey or slug'),
-      },
-    },
-    async ({ wikiKey }) => {
-      try {
-        const [wiki] = await deps.db
-          .select()
-          .from(wikis)
-          .where(eq(wikis.lookupKey, wikiKey))
-
-        if (!wiki) {
-          return {
-            content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Wiki not found' }) }],
-            isError: true as const,
-          }
-        }
-
-        const [updated] = await deps.db
-          .update(wikis)
-          .set({ published: false, updatedAt: new Date() })
-          .where(eq(wikis.lookupKey, wikiKey))
-          .returning()
-
-        await emitAuditEvent(deps.db, {
-          entityType: 'wiki',
-          entityId: wikiKey,
-          eventType: 'unpublished',
-          source: 'mcp',
-          summary: `Wiki unpublished: ${wiki.name}`,
-          detail: { wikiKey },
-        })
-
-        return {
-          content: [{
-            type: 'text' as const,
-            text: JSON.stringify({
-              published: updated.published,
-              publishedSlug: updated.publishedSlug,
-              publishedAt: updated.publishedAt,
-            }),
-          }],
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err)
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }],
-          isError: true as const,
-        }
-      }
-    }
-  )
-
   /***********************************************************************
    * ## Timeline
    ***********************************************************************/
